@@ -28,8 +28,8 @@ function startServer() {
 
 function createWindow() {
   const opts = {
-    width: 1400,
-    height: 900,
+    width: 1200,
+    height: 700,
     minWidth: 900,
     minHeight: 600,
     icon: path.join(__dirname, "..", "public", "jellify.png"),
