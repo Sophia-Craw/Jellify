@@ -1,0 +1,71 @@
+import { createSignal, onMount, onCleanup } from "solid-js";
+import { usePlayer } from "~/stores/player";
+import { ListMusic, Plus, MoreHorizontal } from "lucide-solid";
+import type { Audio } from "~/lib/types";
+import AddToPlaylistDialog from "./AddToPlaylistDialog";
+
+interface Props {
+  track: Audio;
+  queue?: Audio[];
+  queueIndex: number;
+}
+
+export default function TrackMenu(props: Props) {
+  const player = usePlayer();
+  const [open, setOpen] = createSignal(false);
+  const [showPlaylistDialog, setShowPlaylistDialog] = createSignal(false);
+  let menuRef: HTMLDivElement | undefined;
+
+  function handleClickOutside(e: MouseEvent) {
+    if (open() && menuRef && !menuRef.contains(e.target as Node)) {
+      setOpen(false);
+    }
+  }
+
+  onMount(() => document.addEventListener("click", handleClickOutside));
+  onCleanup(() => typeof document !== "undefined" && document.removeEventListener("click", handleClickOutside));
+
+  function handleAddToQueue() {
+    player.addToQueue(props.track);
+    setOpen(false);
+  }
+
+  return (
+    <div ref={menuRef} class="relative">
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen(!open()); }}
+        class="text-[#888] hover:text-white transition-colors px-1 cursor-pointer"
+        title="More"
+      >
+        <MoreHorizontal size={16} />
+      </button>
+
+      {open() && (
+        <div class="absolute right-0 top-full mt-1 w-44 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-xl z-[60] py-1" onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={handleAddToQueue}
+            class="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#e0e0e0] hover:bg-[#242424] transition-colors text-left cursor-pointer"
+          >
+            <ListMusic size={16} />
+            Add to queue
+          </button>
+          <button
+            onClick={() => { setOpen(false); setShowPlaylistDialog(true); }}
+            class="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#e0e0e0] hover:bg-[#242424] transition-colors text-left cursor-pointer"
+          >
+            <Plus size={16} />
+            Add to playlist
+          </button>
+        </div>
+      )}
+
+      {showPlaylistDialog() && (
+        <AddToPlaylistDialog
+          trackId={props.track.Id}
+          trackName={props.track.Name}
+          onClose={() => setShowPlaylistDialog(false)}
+        />
+      )}
+    </div>
+  );
+}
