@@ -42,6 +42,7 @@ function createWindow() {
 
   if (isMac) {
     opts.titleBarStyle = "hidden";
+    opts.trafficLightPosition = { x: 10, y: 10 };
   } else {
     opts.frame = false;
   }

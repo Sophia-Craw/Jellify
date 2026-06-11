@@ -2,10 +2,13 @@ import { createSignal, onMount, onCleanup } from "solid-js";
 import { LogOut } from "lucide-solid";
 import { useAuth } from "~/stores/auth";
 
-export default function UserMenu() {
+export default function UserMenu(props: { compact?: boolean }) {
   const { auth, logout } = useAuth();
   const [open, setOpen] = createSignal(false);
   let ref: HTMLDivElement | undefined;
+
+  const size = props.compact ? "w-7 h-7" : "w-8 h-8";
+  const border = props.compact ? "border" : "border-2";
 
   function handleClickOutside(e: MouseEvent) {
     if (ref && !ref.contains(e.target as Node)) {
@@ -29,7 +32,7 @@ export default function UserMenu() {
     <div ref={ref} class="relative">
       <button
         onClick={() => setOpen(!open())}
-        class="w-8 h-8 rounded-full overflow-hidden border-2 border-[#2a2a2a] hover:border-[#1db954] transition-colors cursor-pointer"
+        class={`${size} rounded-full overflow-hidden ${border} border-[#2a2a2a] hover:border-[#1db954] transition-colors cursor-pointer`}
         title="User menu"
       >
         <img src={imgSrc} alt="User" class="w-full h-full object-cover" />

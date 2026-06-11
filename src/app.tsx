@@ -1,7 +1,7 @@
-import { Router, useLocation, useIsRouting } from "@solidjs/router";
+import { Router, A, useLocation, useIsRouting, useNavigate } from "@solidjs/router";
 import { FileRoutes } from "@solidjs/start/router";
 import { Suspense, Show } from "solid-js";
-import { ChevronLeft, ChevronRight } from "lucide-solid";
+import { ChevronLeft, ChevronRight, Search } from "lucide-solid";
 import Sidebar from "~/components/Sidebar";
 import Player from "~/components/Player";
 import Visualizer from "~/components/Visualizer";
@@ -18,7 +18,9 @@ function AppLayout(props: { children: any }) {
   const location = useLocation();
   const isRouting = useIsRouting();
   const { showVisualizer } = usePlayer();
+  const navigate = useNavigate();
 
+  const isMacElectron = typeof navigator !== "undefined" && navigator.platform?.toLowerCase().includes("mac") && navigator.userAgent.includes("Electron");
   const showChrome = () => location.pathname !== "/auth";
   const showHeader = () => showChrome() && ready() && auth();
 
@@ -62,7 +64,18 @@ function AppLayout(props: { children: any }) {
                     <ChevronRight size={18} />
                   </button>
                 </div>
-                <UserMenu />
+                {isMacElectron ? (
+                  <button
+                    onClick={() => navigate("/search")}
+                    class="h-8 w-28 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-start gap-1.5 text-white transition-colors cursor-pointer px-3"
+                    title="Search"
+                  >
+                    <Search size={16} />
+                    <span class="text-sm text-[#aaa]">Search...</span>
+                  </button>
+                ) : (
+                  <UserMenu />
+                )}
               </div>
             </div>
           </Show>

@@ -1,5 +1,7 @@
 import { createSignal } from "solid-js";
 import { Minus, Square, X } from "lucide-solid";
+import { useAuth } from "~/stores/auth";
+import UserMenu from "./UserMenu";
 
 declare global {
   interface Window {
@@ -16,6 +18,7 @@ const isMac = typeof navigator !== "undefined" && navigator.platform?.toLowerCas
 
 export default function TitleBar() {
   const [maximized, setMaximized] = createSignal(false);
+  const { auth } = useAuth();
 
   function handleMaximize() {
     setMaximized(!maximized());
@@ -26,14 +29,19 @@ export default function TitleBar() {
 
   return (
     <div
-      class="flex items-center h-9 bg-[#121212] border-b border-[#2a2a2a] select-none shrink-0"
-      classList={{ "pl-20": isMac, "justify-between px-3": !showWindowControls }}
+      class="flex items-center bg-[#121212] border-b border-[#2a2a2a] select-none shrink-0"
+      classList={{ "pl-20 h-9": isMac, "h-9 justify-between px-3": !showWindowControls }}
       style={{ "-webkit-app-region": "drag" as any }}
     >
       <div class="flex items-center gap-2">
         <img src="/jellify.png" alt="Jellify" class="w-5 h-5 rounded" />
         <span class="text-sm font-semibold text-white tracking-wide">Jellify</span>
       </div>
+      {isMac && isElectron && auth() && (
+        <div class="self-start pt-1 pr-2" style={{ "-webkit-app-region": "no-drag" as any }}>
+          <UserMenu compact />
+        </div>
+      )}
       {showWindowControls && (
         <div class="flex h-full" style={{ "-webkit-app-region": "no-drag" as any }}>
           <button
