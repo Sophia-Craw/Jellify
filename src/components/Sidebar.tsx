@@ -117,9 +117,6 @@ export default function Sidebar() {
         >
           {collapsed() ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
         </button>
-        {!collapsed() && (
-          <span class="ml-3 text-white font-semibold text-sm tracking-wide">Jellify</span>
-        )}
       </div>
 
       <nav class="flex-1 py-2 overflow-y-auto">

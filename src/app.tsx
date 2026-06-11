@@ -7,6 +7,7 @@ import Player from "~/components/Player";
 import Visualizer from "~/components/Visualizer";
 import UserMenu from "~/components/UserMenu";
 import AuthModal from "~/components/AuthModal";
+import TitleBar from "~/components/TitleBar";
 import { PlayerProvider, usePlayer } from "~/stores/player";
 import { PlaylistsProvider } from "~/stores/playlists";
 import { AuthProvider, useAuth } from "~/stores/auth";
@@ -35,7 +36,11 @@ function AppLayout(props: { children: any }) {
         <AuthModal />
       </Show>
 
-      <div class="flex h-screen overflow-hidden">
+      <div class="flex flex-col h-screen overflow-hidden">
+        <Show when={showChrome()}>
+          <TitleBar />
+        </Show>
+        <div class="flex flex-1 overflow-hidden">
         <Show when={showChrome()}>
           <Sidebar />
         </Show>
@@ -69,6 +74,7 @@ function AppLayout(props: { children: any }) {
         <Show when={showChrome()}>
           <Player />
         </Show>
+        </div>
       </div>
     </>
   );
