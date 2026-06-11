@@ -8,7 +8,9 @@ import { useInfiniteScroll } from "~/lib/useInfiniteScroll";
 import { fetchArtistBio } from "~/lib/wiki";
 import AlbumCard from "~/components/AlbumCard";
 import TrackMenu from "~/components/TrackMenu";
-import { User, Music, ExternalLink } from "lucide-solid";
+import TrackRowCard from "~/components/TrackRowCard";
+import { useIsMobile } from "~/lib/mobile";
+import { User, Music, ExternalLink, Play } from "lucide-solid";
 
 function formatDuration(ticks?: number): string {
   if (!ticks) return "0:00";
@@ -21,6 +23,7 @@ export default function ArtistPage() {
   const { authVersion } = useAuth();
   const player = usePlayer();
   const { state } = player;
+  const isMobile = useIsMobile();
 
   const [artist] = createResource(() => params.id, fetchArtistInfo);
   const [realAlbums] = createResource(() => params.id, fetchArtistAlbums);
@@ -109,9 +112,42 @@ export default function ArtistPage() {
     if (all.length) player.play(track, all, index);
   }
 
+  function playDiscography() {
+    const all = allSingles();
+    if (all.length) player.play(all[0], all, 0);
+  }
+
   return (
-    <div class="p-6">
-      {artist() && (
+    <div class="pt-6 px-6 pb-2">
+      {artist() && (isMobile() ? (
+        <div class="-mx-6 -mt-[72px] mb-8 relative overflow-hidden" style="height: 100vw; max-height: 600px">
+          {imageSrc() ? (
+            <img src={imageSrc()} alt={artist()!.Name} class="absolute inset-0 w-full h-full object-cover" />
+          ) : (
+            <div class="absolute inset-0 w-full h-full flex items-center justify-center bg-[#1a1a1a] text-[#555]">
+              <User size={80} />
+            </div>
+          )}
+          <div class="absolute inset-0 bg-gradient-to-t from-[#121212] via-[#121212]/40 to-transparent" />
+          <div class="absolute bottom-0 left-0 right-0 p-6 flex items-end justify-between">
+            <div class="flex-1">
+              <p class="text-xs text-[#888] uppercase tracking-wider mb-1">Artist</p>
+              <h1 class="text-3xl font-bold text-white">{artist()!.Name}</h1>
+              {subtitle() && (
+                <p class="text-sm text-[#888] mt-1">{subtitle()}</p>
+              )}
+            </div>
+            {allSingles().length > 0 && (
+              <button
+                onClick={playDiscography}
+                class="w-12 h-12 rounded-full bg-[#1db954] text-black flex items-center justify-center hover:scale-105 transition-transform shrink-0 cursor-pointer"
+              >
+                <Play size={24} fill="currentColor" />
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
         <div class="flex items-center gap-6 mb-8">
           <div class="w-40 h-40 rounded-full overflow-hidden bg-[#1a1a1a] flex-shrink-0">
             {imageSrc() ? (
@@ -134,7 +170,7 @@ export default function ArtistPage() {
             )}
           </div>
         </div>
-      )}
+      ))}
 
       {hasAlbums() && (
         <section class="mb-8">
@@ -165,9 +201,27 @@ export default function ArtistPage() {
         </section>
       )}
 
-      {hasSingles() && (
+      {hasSingles() && (() => {
+        return (
         <section>
           <h2 class="text-lg font-semibold text-white mb-4">Singles</h2>
+          {isMobile() ? (
+            <div class="space-y-1">
+              {singleScroll.visible().map((track) => {
+                const all = allSingles();
+                const globalIndex = all.indexOf(track);
+                const isActive = state.isPlaying && state.queue[state.queueIndex]?.Id === track.Id;
+                return (
+                  <TrackRowCard
+                    track={track}
+                    index={globalIndex}
+                    isActive={isActive}
+                    onClick={() => playSingle(track, globalIndex)}
+                  />
+                );
+              })}
+            </div>
+          ) : (
           <table class="w-full text-sm">
             <thead>
               <tr class="text-[#888] text-xs uppercase tracking-wider border-b border-[#2a2a2a]">
@@ -233,9 +287,11 @@ export default function ArtistPage() {
               })}
             </tbody>
           </table>
+          )}
           {singleScroll.hasMore() && <div ref={singleScroll.sentinelRef} class="h-4" />}
         </section>
-      )}
+        );
+      })()}
 
       {wikiData()?.extract && (
         <section class="mt-8 max-w-2xl">

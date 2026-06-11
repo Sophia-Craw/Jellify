@@ -1,6 +1,7 @@
 import { createSignal, onMount, onCleanup } from "solid-js";
 import { usePlayer } from "~/stores/player";
-import { ListMusic, Plus, MoreHorizontal } from "lucide-solid";
+import { usePlaylists } from "~/stores/playlists";
+import { ListMusic, Plus, Trash2, MoreHorizontal } from "lucide-solid";
 import type { Audio } from "~/lib/types";
 import AddToPlaylistDialog from "./AddToPlaylistDialog";
 
@@ -8,10 +9,12 @@ interface Props {
   track: Audio;
   queue?: Audio[];
   queueIndex: number;
+  playlistId?: string;
 }
 
 export default function TrackMenu(props: Props) {
   const player = usePlayer();
+  const { removeTrack } = usePlaylists();
   const [open, setOpen] = createSignal(false);
   const [showPlaylistDialog, setShowPlaylistDialog] = createSignal(false);
   let menuRef: HTMLDivElement | undefined;
@@ -27,6 +30,13 @@ export default function TrackMenu(props: Props) {
 
   function handleAddToQueue() {
     player.addToQueue(props.track);
+    setOpen(false);
+  }
+
+  function handleRemoveFromPlaylist() {
+    if (props.playlistId) {
+      removeTrack(props.playlistId, props.track.Id);
+    }
     setOpen(false);
   }
 
@@ -56,6 +66,15 @@ export default function TrackMenu(props: Props) {
             <Plus size={16} />
             Add to playlist
           </button>
+          {props.playlistId && (
+            <button
+              onClick={handleRemoveFromPlaylist}
+              class="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-[#242424] transition-colors text-left cursor-pointer"
+            >
+              <Trash2 size={16} />
+              Remove from playlist
+            </button>
+          )}
         </div>
       )}
 

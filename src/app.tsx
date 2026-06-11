@@ -1,13 +1,17 @@
 import { Router, A, useLocation, useIsRouting, useNavigate } from "@solidjs/router";
 import { FileRoutes } from "@solidjs/start/router";
-import { Suspense, Show } from "solid-js";
+import { Suspense, Show, createEffect, createSignal, onMount, onCleanup } from "solid-js";
 import { ChevronLeft, ChevronRight, Search } from "lucide-solid";
 import Sidebar from "~/components/Sidebar";
 import Player from "~/components/Player";
+import MobilePlayer from "~/components/MobilePlayer";
+import MobileNavBar from "~/components/MobileNavBar";
+import MobileProfileSheet from "~/components/MobileProfileSheet";
 import Visualizer from "~/components/Visualizer";
 import UserMenu from "~/components/UserMenu";
 import AuthModal from "~/components/AuthModal";
 import TitleBar from "~/components/TitleBar";
+import { useIsMobile } from "~/lib/mobile";
 import { PlayerProvider, usePlayer } from "~/stores/player";
 import { PlaylistsProvider } from "~/stores/playlists";
 import { AuthProvider, useAuth } from "~/stores/auth";
@@ -19,10 +23,40 @@ function AppLayout(props: { children: any }) {
   const isRouting = useIsRouting();
   const { showVisualizer } = usePlayer();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   const isMacElectron = typeof navigator !== "undefined" && navigator.platform?.toLowerCase().includes("mac") && navigator.userAgent.includes("Electron");
   const showChrome = () => location.pathname !== "/auth";
   const showHeader = () => showChrome() && ready() && auth();
+
+  const [pageAnim, setPageAnim] = createSignal("");
+  const [showProfileSheet, setShowProfileSheet] = createSignal(false);
+  const [stuck, setStuck] = createSignal(false);
+  let sentinelRef: HTMLDivElement | undefined;
+  let prevPath = location.pathname;
+
+  onMount(() => {
+    if (sentinelRef && isMobile()) {
+      const observer = new IntersectionObserver(
+        ([entry]) => setStuck(!entry.isIntersecting),
+        { threshold: 0 }
+      );
+      observer.observe(sentinelRef);
+      onCleanup(() => observer.disconnect());
+    }
+  });
+
+  createEffect(() => {
+    const current = location.pathname;
+    if (current !== prevPath && isMobile()) {
+      const prevDepth = prevPath.split("/").filter(Boolean).length;
+      const currDepth = current.split("/").filter(Boolean).length;
+      const dir = currDepth >= prevDepth ? "forward" : "back";
+      setPageAnim("");
+      setTimeout(() => setPageAnim(dir === "forward" ? "page-enter-forward" : "page-enter-back"), 20);
+      prevPath = current;
+    }
+  });
 
   return (
     <>
@@ -39,55 +73,115 @@ function AppLayout(props: { children: any }) {
       </Show>
 
       <div class="flex flex-col h-screen overflow-hidden">
-        <Show when={showChrome()}>
+        {/* TitleBar - desktop only */}
+        <Show when={showChrome() && !isMobile()}>
           <TitleBar />
         </Show>
-        <div class="flex flex-1 overflow-hidden">
-        <Show when={showChrome()}>
-          <Sidebar />
-        </Show>
-        <main class="flex-1 overflow-y-auto pb-20 relative">
-          <Show when={showHeader()}>
-            <div class="sticky top-0 z-30 bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
-              <div class="flex items-center justify-between px-4 py-3 pointer-events-auto">
-                <div class="flex items-center gap-2">
-                  <button
-                    onClick={() => window.history.back()}
-                    class="w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center text-white transition-colors cursor-pointer"
-                  >
-                    <ChevronLeft size={18} />
-                  </button>
-                  <button
-                    onClick={() => window.history.forward()}
-                    class="w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center text-white transition-colors cursor-pointer"
-                  >
-                    <ChevronRight size={18} />
-                  </button>
-                </div>
-                {isMacElectron ? (
-                  <button
-                    onClick={() => navigate("/search")}
-                    class="h-8 w-28 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-start gap-1.5 text-white transition-colors cursor-pointer px-3"
-                    title="Search"
-                  >
-                    <Search size={16} />
-                    <span class="text-sm text-[#aaa]">Search...</span>
-                  </button>
-                ) : (
-                  <UserMenu />
-                )}
-              </div>
+
+        {/* Mobile header - fixed overlay */}
+        <Show when={showHeader() && isMobile()}>
+          <div
+            class="fixed top-0 left-0 right-0 z-40 h-12 pointer-events-none transition-all duration-300"
+            classList={{
+              "bg-gradient-to-b from-black/90 to-transparent": !stuck(),
+              "bg-[#121212]/95 backdrop-blur border-b border-[#2a2a2a]": stuck(),
+            }}
+          >
+            <div class="flex items-center justify-between px-4 h-full pointer-events-auto">
+              <button
+                onClick={() => window.history.back()}
+                class="w-9 h-9 flex items-center justify-center text-white hover:text-[#1db954] transition-colors cursor-pointer"
+              >
+                <ChevronLeft size={22} />
+              </button>
+              <button
+                onClick={() => setShowProfileSheet(true)}
+                class="w-8 h-8 rounded-full overflow-hidden border border-[#2a2a2a] hover:border-[#1db954] transition-colors cursor-pointer"
+              >
+                <img
+                  src={`${auth()!.serverUrl}/Users/${auth()!.userId}/Images/Primary?api_key=${auth()!.accessToken}&quality=90`}
+                  alt=""
+                  class="w-full h-full object-cover"
+                />
+              </button>
             </div>
-          </Show>
-          <Suspense>{props.children}</Suspense>
-        </main>
-        <Show when={showChrome() && showVisualizer()}>
-          <Visualizer />
+          </div>
         </Show>
-        <Show when={showChrome()}>
+
+        <div class="flex flex-1 overflow-hidden">
+          {/* Sidebar - desktop only */}
+          <Show when={showChrome() && !isMobile()}>
+            <Sidebar />
+          </Show>
+
+          <main
+            class="flex-1 overflow-y-auto relative"
+            classList={{
+              "pb-20": showChrome() && !isMobile(),
+              "pb-28": showChrome() && isMobile(),
+              "pt-12": showChrome() && isMobile(),
+            }}
+          >
+            {/* Header - desktop only */}
+            <Show when={showHeader() && !isMobile()}>
+              <div class="sticky top-0 z-30 bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
+                <div class="flex items-center justify-between px-4 py-3 pointer-events-auto">
+                  <div class="flex items-center gap-2">
+                    <button
+                      onClick={() => window.history.back()}
+                      class="w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center text-white transition-colors cursor-pointer"
+                    >
+                      <ChevronLeft size={18} />
+                    </button>
+                    <button
+                      onClick={() => window.history.forward()}
+                      class="w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center text-white transition-colors cursor-pointer"
+                    >
+                      <ChevronRight size={18} />
+                    </button>
+                  </div>
+                  {isMacElectron ? (
+                    <button
+                      onClick={() => navigate("/search")}
+                      class="h-8 w-28 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-start gap-1.5 text-white transition-colors cursor-pointer px-3"
+                      title="Search"
+                    >
+                      <Search size={16} />
+                      <span class="text-sm text-[#aaa]">Search...</span>
+                    </button>
+                  ) : (
+                    <UserMenu />
+                  )}
+                </div>
+              </div>
+            </Show>
+            <div ref={sentinelRef} class="h-px" />
+            <div class={pageAnim()}>
+              <Suspense>{props.children}</Suspense>
+            </div>
+          </main>
+
+          {/* Visualizer - desktop only */}
+          <Show when={showChrome() && showVisualizer() && !isMobile()}>
+            <Visualizer />
+          </Show>
+        </div>
+
+        {/* Mobile player + nav */}
+        <Show when={showChrome() && isMobile()}>
+          <MobilePlayer />
+          <MobileNavBar />
+        </Show>
+
+        {/* Mobile profile sheet */}
+        <Show when={showProfileSheet()}>
+          <MobileProfileSheet onClose={() => setShowProfileSheet(false)} />
+        </Show>
+
+        {/* Desktop player */}
+        <Show when={showChrome() && !isMobile()}>
           <Player />
         </Show>
-        </div>
       </div>
     </>
   );

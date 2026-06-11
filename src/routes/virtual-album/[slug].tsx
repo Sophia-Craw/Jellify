@@ -1,4 +1,4 @@
-import { createResource, createMemo, Show } from "solid-js";
+import { createResource, createMemo, createSignal, onMount, onCleanup, Show } from "solid-js";
 import { useParams, A } from "@solidjs/router";
 import { fetchOrphanedTracks, getImageUrl } from "~/lib/jellyfin";
 import { useInfiniteScroll } from "~/lib/useInfiniteScroll";
@@ -6,6 +6,8 @@ import { useAuth } from "~/stores/auth";
 import { usePlayer } from "~/stores/player";
 import { Music, ArrowLeft } from "lucide-solid";
 import TrackMenu from "~/components/TrackMenu";
+import TrackRowCard from "~/components/TrackRowCard";
+import { useIsMobile } from "~/lib/mobile";
 import type { Audio, VirtualAlbum } from "~/lib/types";
 
 function formatDuration(ticks?: number): string {
@@ -21,6 +23,20 @@ export default function VirtualAlbumPage() {
   const { authVersion } = useAuth();
   const player = usePlayer();
   const { state } = player;
+  const isMobile = useIsMobile();
+
+  const [showSticky, setShowSticky] = createSignal(false);
+  let sentinelRef: HTMLDivElement | undefined;
+
+  onMount(() => {
+    if (!sentinelRef) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowSticky(!entry.isIntersecting),
+      { threshold: 0 }
+    );
+    observer.observe(sentinelRef);
+    onCleanup(() => observer.disconnect());
+  });
 
   const [orphans] = createResource(() => authVersion(), (v) => fetchOrphanedTracks(v));
 
@@ -56,7 +72,7 @@ export default function VirtualAlbumPage() {
   });
 
   return (
-    <div class="p-6">
+    <div class="pt-6 px-6 pb-2">
       <A
         href="/library?tab=albums"
         class="inline-flex items-center gap-2 text-[#888] hover:text-white text-sm mb-4 transition-colors"
@@ -70,7 +86,44 @@ export default function VirtualAlbumPage() {
           <p class="text-[#888] text-sm mt-8 text-center">Album not found</p>
         }>
           <>
-          <div class="flex flex-col sm:flex-row gap-6 mb-8">
+          <div
+            class="sticky top-0 z-30 -mx-6 px-4 bg-[#121212]/95 backdrop-blur border-b border-[#2a2a2a] transition-all duration-300 ease-out"
+            classList={{
+              "opacity-0": !showSticky() || !isMobile(),
+              "opacity-100": showSticky() && isMobile(),
+            }}
+            style={{
+              transform: showSticky() && isMobile() ? 'translateY(0)' : 'translateY(-100%)',
+            }}
+          >
+            <div class="flex items-center gap-3 h-12">
+              <Show when={hasCover()} fallback={
+                <div class="w-8 h-8 rounded bg-[#333] flex items-center justify-center flex-shrink-0">
+                  <Music size={14} class="text-[#555]" />
+                </div>
+              }>
+                <img
+                  src={getImageUrl(firstTrack()!.Id, "Primary", 60)}
+                  alt={album()!.name}
+                  class="w-8 h-8 rounded object-cover flex-shrink-0"
+                />
+              </Show>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-white truncate">{album()!.name}</p>
+                <p class="text-xs text-[#888] truncate">{album()!.albumArtist}</p>
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="flex flex-col sm:flex-row gap-6 mb-8 items-center sm:items-start text-center sm:text-left transition-all duration-300 ease-out origin-top"
+            style={{
+              transform: showSticky() && isMobile()
+                ? 'scale(0.85) translateY(-20px)'
+                : 'scale(1) translateY(0)',
+              opacity: showSticky() && isMobile() ? 0 : 1,
+            }}
+          >
             <Show when={hasCover()} fallback={
               <div class="w-48 h-48 rounded-lg flex items-center justify-center bg-[#242424] text-[#555] flex-shrink-0">
                 <Music size={48} />
@@ -82,7 +135,7 @@ export default function VirtualAlbumPage() {
                 class="w-48 h-48 rounded-lg object-cover shadow-lg flex-shrink-0"
               />
             </Show>
-            <div class="flex flex-col justify-end">
+            <div class="flex flex-col justify-end items-center sm:items-start">
               <p class="text-xs text-[#888] uppercase tracking-wider mb-1">
                 Album
               </p>
@@ -97,7 +150,7 @@ export default function VirtualAlbumPage() {
               ) : (
                 <p class="text-sm text-[#888]">{album()!.albumArtist}</p>
               )}
-              <div class="flex items-center gap-2 mt-2 text-xs text-[#555]">
+              <div class="flex items-center justify-center sm:justify-start gap-2 mt-2 text-xs text-[#555]">
                 <span>{album()!.trackCount} tracks</span>
                 <span>•</span>
                 <span>{totalDuration()}</span>
@@ -105,60 +158,83 @@ export default function VirtualAlbumPage() {
             </div>
           </div>
 
-          <table class="w-full text-sm">
-            <thead>
-              <tr class="text-[#888] text-xs uppercase tracking-wider border-b border-[#2a2a2a]">
-                <th class="text-left py-2 px-2 w-8">#</th>
-                <th class="text-left py-2 px-2">Title</th>
-                <th class="text-left py-2 px-2">Artist</th>
-                <th class="text-right py-2 px-2 w-16">Duration</th>
-                <th class="py-2 px-2 w-8"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {trackScroll.visible().map((track) => {
-                const allTracks = tracks();
-                const globalIndex = allTracks.indexOf(track);
-                const isActive = state.isPlaying
-                  && state.queue[state.queueIndex]?.Id === track.Id;
-                return (
-                  <tr
-                    class={`group cursor-pointer transition-colors ${
-                      isActive
-                        ? "bg-[#1db954]/10 text-[#1db954]"
-                        : "text-[#e0e0e0] hover:bg-[#1a1a1a]"
-                    }`}
-                    onClick={() => handlePlay(track, globalIndex)}
-                  >
-                    <td class="py-2 px-2 text-xs">
-                      <span class="group-hover:hidden">{globalIndex + 1}</span>
-                      <span class="hidden group-hover:inline-flex items-center text-white">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
-                      </span>
-                    </td>
-                    <td class="py-2 px-2">
-                      <p class="truncate max-w-[300px] sm:max-w-none">{track.Name}</p>
-                    </td>
-                    <td class="py-2 px-2 text-xs truncate max-w-[150px]">
-                      {track.ArtistItems?.[0] ? (
-                        <A href={`/artist/${track.ArtistItems[0].Id}`} class="text-[#888] hover:text-white hover:underline">{track.ArtistItems[0].Name}</A>
-                      ) : (
-                        <span class="text-[#888]">{track.Artists?.join(", ") || track.AlbumArtist || ""}</span>
-                      )}
-                    </td>
-                    <td class="py-2 px-2 text-right text-xs text-[#888]">
-                      {formatDuration(track.RunTimeTicks)}
-                    </td>
-                    <td class="py-2 px-2">
-                      <div onClick={(e) => e.stopPropagation()}>
-                        <TrackMenu track={track} queue={allTracks} queueIndex={globalIndex} />
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div ref={sentinelRef} class="h-px" />
+
+          {(() => {
+            const allTracks = tracks();
+            const visibleTracks = trackScroll.visible();
+            return isMobile() ? (
+              <div class="space-y-1">
+                {visibleTracks.map((track) => {
+                  const globalIndex = allTracks.indexOf(track);
+                  const isActive = state.isPlaying
+                    && state.queue[state.queueIndex]?.Id === track.Id;
+                  return (
+                    <TrackRowCard
+                      track={track}
+                      index={globalIndex}
+                      isActive={isActive}
+                      onClick={() => handlePlay(track, globalIndex)}
+                    />
+                  );
+                })}
+              </div>
+            ) : (
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="text-[#888] text-xs uppercase tracking-wider border-b border-[#2a2a2a]">
+                  <th class="text-left py-2 px-2 w-8">#</th>
+                  <th class="text-left py-2 px-2">Title</th>
+                  <th class="text-left py-2 px-2">Artist</th>
+                  <th class="text-right py-2 px-2 w-16">Duration</th>
+                  <th class="py-2 px-2 w-8"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleTracks.map((track) => {
+                  const globalIndex = allTracks.indexOf(track);
+                  const isActive = state.isPlaying
+                    && state.queue[state.queueIndex]?.Id === track.Id;
+                  return (
+                    <tr
+                      class={`group cursor-pointer transition-colors ${
+                        isActive
+                          ? "bg-[#1db954]/10 text-[#1db954]"
+                          : "text-[#e0e0e0] hover:bg-[#1a1a1a]"
+                      }`}
+                      onClick={() => handlePlay(track, globalIndex)}
+                    >
+                      <td class="py-2 px-2 text-xs">
+                        <span class="group-hover:hidden">{globalIndex + 1}</span>
+                        <span class="hidden group-hover:inline-flex items-center text-white">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+                        </span>
+                      </td>
+                      <td class="py-2 px-2">
+                        <p class="truncate max-w-[300px] sm:max-w-none">{track.Name}</p>
+                      </td>
+                      <td class="py-2 px-2 text-xs truncate max-w-[150px]">
+                        {track.ArtistItems?.[0] ? (
+                          <A href={`/artist/${track.ArtistItems[0].Id}`} class="text-[#888] hover:text-white hover:underline">{track.ArtistItems[0].Name}</A>
+                        ) : (
+                          <span class="text-[#888]">{track.Artists?.join(", ") || track.AlbumArtist || ""}</span>
+                        )}
+                      </td>
+                      <td class="py-2 px-2 text-right text-xs text-[#888]">
+                        {formatDuration(track.RunTimeTicks)}
+                      </td>
+                      <td class="py-2 px-2">
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <TrackMenu track={track} queue={allTracks} queueIndex={globalIndex} />
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            );
+          })()}
           {trackScroll.hasMore() && <div ref={trackScroll.sentinelRef} class="h-4" />}
           </>
         </Show>

@@ -1,15 +1,20 @@
+import { type Component } from "solid-js";
 import type { Audio } from "~/lib/types";
 import { usePlayer } from "~/stores/player";
+import { useIsMobile } from "~/lib/mobile";
 import { A } from "@solidjs/router";
 import { Play } from "lucide-solid";
 import TrackMenu from "./TrackMenu";
+import TrackRowCard from "./TrackRowCard";
 
 export default function TrackTable(props: {
   tracks: Audio[];
   queue?: Audio[];
+  playlistId?: string;
 }) {
   const player = usePlayer();
   const { state } = player;
+  const isMobile = useIsMobile();
 
   function playTrack(track: Audio, index: number) {
     const queue = props.queue ?? props.tracks;
@@ -25,7 +30,25 @@ export default function TrackTable(props: {
   }
 
   return (
-    <table class="w-full text-sm">
+    <>
+      {isMobile() ? (
+        <div class="space-y-1">
+          {props.tracks.map((track, index) => {
+            const isActive = state.isPlaying
+              && state.queue[state.queueIndex]?.Id === track.Id;
+            return (
+              <TrackRowCard
+                track={track}
+                index={index}
+                isActive={isActive}
+                onClick={() => playTrack(track, index)}
+                playlistId={props.playlistId}
+              />
+            );
+          })}
+        </div>
+      ) : (
+      <table class="w-full text-sm">
       <thead>
         <tr class="text-[#888] text-xs uppercase tracking-wider border-b border-[#2a2a2a]">
           <th class="text-left py-2 px-2 w-8">#</th>
@@ -73,5 +96,7 @@ export default function TrackTable(props: {
         })}
       </tbody>
     </table>
+      )}
+    </>
   );
 }

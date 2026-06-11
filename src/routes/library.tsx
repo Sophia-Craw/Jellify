@@ -1,14 +1,16 @@
-import { createResource, createMemo, createSignal, For, onMount } from "solid-js";
+import { createResource, createMemo, createSignal, For, onMount, onCleanup } from "solid-js";
 import { useSearchParams, A } from "@solidjs/router";
 import { fetchAlbums, fetchArtists, fetchGenres, fetchSinglesTracks, fetchOrphanedTracks, getImageUrl } from "~/lib/jellyfin";
 import type { AlbumTab, Genre, Audio, MusicAlbum, VirtualAlbum } from "~/lib/types";
 import AlbumCard from "~/components/AlbumCard";
 import ArtistCard from "~/components/ArtistCard";
 import TrackMenu from "~/components/TrackMenu";
+import TrackRowCard from "~/components/TrackRowCard";
 import { usePlayer } from "~/stores/player";
 import { usePlaylists } from "~/stores/playlists";
 import { useAuth } from "~/stores/auth";
 import { useInfiniteScroll } from "~/lib/useInfiniteScroll";
+import { useIsMobile } from "~/lib/mobile";
 import { Music } from "lucide-solid";
 
 const TABS: { key: AlbumTab; label: string }[] = [
@@ -47,6 +49,20 @@ export default function Library() {
   });
   const [albums] = createResource(() => ({ v: authVersion(), genre: selectedGenreId() }), (s) => fetchAlbums("ChildCount", s.genre || undefined));
   const [artists] = createResource(() => ({ v: authVersion(), genre: selectedGenreId() }), (s) => fetchArtists(s.genre || undefined));
+  const isMobile = useIsMobile();
+  const [showSticky, setShowSticky] = createSignal(false);
+  let sentinelRef: HTMLDivElement | undefined;
+
+  onMount(() => {
+    if (!sentinelRef) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowSticky(!entry.isIntersecting),
+      { threshold: 0 }
+    );
+    observer.observe(sentinelRef);
+    onCleanup(() => observer.disconnect());
+  });
+
   const [singlesTracks] = createResource(() => ({ v: authVersion(), genre: selectedGenreId() }), (s) => fetchSinglesTracks(s.genre || undefined));
   const [virtualAlbums] = createResource(() => authVersion(), () => fetchOrphanedTracks());
 
@@ -120,8 +136,16 @@ export default function Library() {
   }
 
   return (
-    <div class="p-6">
-      <h1 class="text-2xl font-bold text-white mb-6">Library</h1>
+    <div class="pt-6 px-6 pb-2">
+      <div
+        class="sticky top-0 z-30 transition-all duration-200 -mx-6 px-6 mb-6"
+        classList={{
+          "bg-[#121212]/95 backdrop-blur border-b border-[#2a2a2a]": showSticky() && isMobile(),
+        }}
+      >
+        <h1 class="text-2xl font-bold text-white py-3">Library</h1>
+      </div>
+      <div ref={sentinelRef} class="h-px" />
 
       <div class="flex gap-1 mb-4 bg-[#1a1a1a] rounded-lg p-1 w-fit">
         {TABS.map((tab) => (
@@ -246,6 +270,23 @@ export default function Library() {
                 ))}
               </div>
             ) : combined.length > 0 ? (
+              isMobile() ? (
+                <div class="space-y-1">
+                  {visibleTracks.map((track) => {
+                    const globalIndex = combined.indexOf(track);
+                    const isActive = state.isPlaying
+                      && state.queue[state.queueIndex]?.Id === track.Id;
+                    return (
+                      <TrackRowCard
+                        track={track}
+                        index={globalIndex}
+                        isActive={isActive}
+                        onClick={() => playSingle(track, globalIndex)}
+                      />
+                    );
+                  })}
+                </div>
+              ) : (
               <table class="w-full text-sm">
                 <thead>
                   <tr class="text-[#888] text-xs uppercase tracking-wider border-b border-[#2a2a2a]">
@@ -311,6 +352,7 @@ export default function Library() {
                   })}
                 </tbody>
               </table>
+              )
             ) : (
               <p class="text-[#888] text-sm mt-8 text-center">No singles found</p>
             )}

@@ -6,6 +6,7 @@ interface AuthData {
   serverUrl: string;
   accessToken: string;
   userId: string;
+  username: string;
 }
 
 interface AuthContextValue {
@@ -67,6 +68,7 @@ export function AuthProvider(props: { children: JSX.Element }) {
       serverUrl: base,
       accessToken: data.AccessToken,
       userId: data.User.Id,
+      username: data.User.Name,
     };
     saveAuth(authData);
     setAuth(authData);

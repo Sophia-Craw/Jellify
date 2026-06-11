@@ -2,6 +2,7 @@ import { createSignal, createEffect, onMount, onCleanup, Show } from "solid-js";
 import { A } from "@solidjs/router";
 import { usePlayer } from "~/stores/player";
 import { getImageUrl } from "~/lib/jellyfin";
+import MarqueeText from "./MarqueeText";
 import { Music, Shuffle, SkipBack, Play, Pause, SkipForward, Repeat, Repeat1, ListMusic, Volume2, Plus, Waves, ArrowUpDown, GripVertical } from "lucide-solid";
 import AddToPlaylistDialog from "./AddToPlaylistDialog";
 import Sortable from "sortablejs";
@@ -114,18 +115,20 @@ export default function Player() {
           </div>
         )}
         <div class="ml-3 min-w-0">
-          <Show when={track()?.AlbumId} fallback={
-            <span class="text-sm text-white truncate max-w-[200px] block">
-              {track()?.Name || "No track playing"}
-            </span>
-          }>
-            <A
-              href={`/album/${track()!.AlbumId}`}
-              class="text-sm text-white truncate max-w-[200px] block hover:underline"
-            >
-              {track()?.Name || "No track playing"}
-            </A>
-          </Show>
+          <MarqueeText class="max-w-[200px]">
+            <Show when={track()?.AlbumId} fallback={
+              <span class="text-sm text-white">
+                {track()?.Name || "No track playing"}
+              </span>
+            }>
+              <A
+                href={`/album/${track()!.AlbumId}`}
+                class="text-sm text-white hover:underline"
+              >
+                {track()?.Name || "No track playing"}
+              </A>
+            </Show>
+          </MarqueeText>
           <A
             href={`/artist/${track()?.AlbumArtists?.[0]?.Id || ""}`}
             class="text-xs text-[#888] truncate max-w-[200px] block hover:text-white hover:underline"
