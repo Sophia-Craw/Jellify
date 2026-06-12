@@ -12,7 +12,7 @@ import UserMenu from "~/components/UserMenu";
 import AuthModal from "~/components/AuthModal";
 import TitleBar from "~/components/TitleBar";
 import { useIsMobile } from "~/lib/mobile";
-import { setupStatusBar, setupKeepAwake, setupWebviewGuardian, isCapacitor } from "~/lib/capacitor";
+import { setupStatusBar, setupKeepAwake, setupWebviewGuardian, setupBatteryOptimization, isCapacitor } from "~/lib/capacitor";
 import { headerTitle, headerSubtitle, headerImageUrl, headerImageShape, showHeaderExtra, playerExpanded } from "~/lib/mobileHeader";
 import { PlayerProvider, usePlayer } from "~/stores/player";
 import { PlaylistsProvider } from "~/stores/playlists";
@@ -41,6 +41,7 @@ function AppLayout(props: { children: any }) {
     setupStatusBar();
     setupKeepAwake();
     setupWebviewGuardian();
+    setupBatteryOptimization();
     if (sentinelRef && isMobile()) {
       const observer = new IntersectionObserver(
         ([entry]) => setStuck(!entry.isIntersecting),

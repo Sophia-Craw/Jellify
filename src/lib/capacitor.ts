@@ -34,3 +34,18 @@ export async function setupWebviewGuardian() {
     // WebviewGuardian plugin not available
   }
 }
+
+export async function setupBatteryOptimization() {
+  if (!isCapacitor()) return;
+  try {
+    const { default: JellifyPlayer } = await import("~/lib/jellify-player");
+    const { exempt } = await JellifyPlayer.requestBatteryOptimization();
+    if (!exempt) {
+      console.log("Battery optimization exemption requested");
+    } else {
+      console.log("Already exempt from battery optimization");
+    }
+  } catch {
+    // Battery optimization request not available
+  }
+}

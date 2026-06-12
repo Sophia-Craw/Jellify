@@ -4,17 +4,34 @@ import type { Audio } from "~/lib/types";
 import { isCapacitor } from "~/lib/capacitor";
 import { getImageUrl } from "~/lib/jellyfin";
 
-let nativeAudio: typeof import("@mediagrid/capacitor-native-audio")["NativeAudio"] | undefined;
-let nativeInitialized = false;
+// ── Native audio backends ───────────────────────────────────────
+
+type JellifyPlayerModule = typeof import("~/lib/jellify-player");
+type MediaGridModule = typeof import("@mediagrid/capacitor-native-audio");
+
+let jellifyPlayer: JellifyPlayerModule | undefined;
+let mediaGrid: MediaGridModule["NativeAudio"] | undefined;
+let nativeBackend: "jellify" | "mediagrid" | "none" = "none";
 let timePollTimer: ReturnType<typeof setInterval> | undefined;
+
+const REPEAT_MODE_MAP: Record<string, number> = { off: 0, all: 1, one: 2 };
 
 function pollCurrentTime() {
   clearInterval(timePollTimer);
   timePollTimer = setInterval(async () => {
-    if (!nativeAudio || !nativeInitialized) return;
     try {
-      const { currentTime } = await nativeAudio.getCurrentTime({ audioId: "main" });
-      setter("currentTime", currentTime);
+      if (nativeBackend === "jellify" && jellifyPlayer?.isJellifyPlayerAvailable()) {
+        const ps = await jellifyPlayer.default.getPlayerState();
+        setter?.("currentTime", ps.currentTime);
+        setStateRef?.("duration", ps.duration);
+        setStateRef?.("isPlaying", ps.isPlaying);
+        if (ps.currentIndex >= 0 && ps.currentIndex !== stateRef?.queueIndex) {
+          setStateRef?.("queueIndex", ps.currentIndex);
+        }
+      } else if (nativeBackend === "mediagrid" && mediaGrid) {
+        const { currentTime } = await mediaGrid.getCurrentTime({ audioId: "main" });
+        setter?.("currentTime", currentTime);
+      }
     } catch {}
   }, 1000);
 }
@@ -24,7 +41,6 @@ function clearTimePoll() {
   timePollTimer = undefined;
 }
 
-// We need a reference to setState from outside the component
 let setter: ((key: "currentTime", val: number) => void) | undefined;
 
 function directStreamUrl(trackId: string): string {
@@ -50,6 +66,8 @@ function trackMeta(track: Audio) {
     artworkSource: getImageUrl(track.AlbumId || track.Id, "Primary", 512),
   };
 }
+
+// ── State types ─────────────────────────────────────────────────
 
 interface PlayerState {
   queue: Audio[];
@@ -98,50 +116,55 @@ interface PlayerContextValue {
 
 const PlayerContext = createContext<PlayerContextValue>();
 
-function registerOnAudioEnd() {
-  if (!nativeAudio) return;
-  nativeAudio.onAudioEnd({ audioId: "main" }, async () => {
-    const s = contextStateRef;
-    if (!s) return;
-    if (s.repeat === "one") {
-      await nativeAudio!.seek({ audioId: "main", timeInSeconds: 0 });
-      await nativeAudio!.play({ audioId: "main" });
-    } else {
-      nextRef?.();
+// ── Native backend initialisation ───────────────────────────────
+
+async function tryInitJellify() {
+  try {
+    const mod = await import("~/lib/jellify-player");
+    const ok = await mod.initJellifyPlayer();
+    if (ok) {
+      jellifyPlayer = mod;
+      nativeBackend = "jellify";
+      return true;
     }
-  });
+  } catch {}
+  return false;
 }
 
-async function initNativeAudio(track: Audio) {
-  const mod = await import("@mediagrid/capacitor-native-audio");
-  nativeAudio = mod.NativeAudio;
-  await nativeAudio.create({
-    audioSource: getStreamUrl(track.Id),
-    audioId: "main",
-    useForNotification: true,
-    ...trackMeta(track),
-  });
-  const readyPromise = new Promise<void>((resolve) => {
-    nativeAudio!.onAudioReady({ audioId: "main" }, () => {
-      resolve();
-    });
-  });
-  registerOnAudioEnd();
-  nativeAudio.onPlaybackStatusChange({ audioId: "main" }, (result) => {
-    if (result.status === "playing") {
-      storeSetState?.("isPlaying", true);
-    } else if (result.status === "paused") {
-      storeSetState?.("isPlaying", false);
-    }
-  });
-  await nativeAudio.initialize({ audioId: "main" });
-  await readyPromise;
-  nativeInitialized = true;
+async function tryInitMediaGrid() {
+  try {
+    const mod = await import("@mediagrid/capacitor-native-audio");
+    mediaGrid = mod.NativeAudio;
+    nativeBackend = "mediagrid";
+    return true;
+  } catch {}
+  return false;
 }
 
-var contextStateRef: PlayerState | undefined;
-var storeSetState: any;
-var nextRef: (() => void) | undefined;
+async function ensureNativeBackend() {
+  if (nativeBackend !== "none") return;
+  if (!isCapacitor()) return;
+  if (await tryInitJellify()) return;
+  await tryInitMediaGrid();
+}
+
+// ── Helpers shared between backends ────────────────────────────
+
+function currentQueueForPlay(track: Audio, queue?: Audio[], startIndex?: number): {
+  newQueue: Audio[];
+  idx: number;
+} {
+  const newQueue = queue ?? [track];
+  let idx = startIndex ?? newQueue.indexOf(track);
+  if (stateRef && stateRef.shuffle && newQueue.length > 1) {
+    const shuffled = shuffleArray(newQueue, idx);
+    return { newQueue: shuffled, idx };
+  }
+  return { newQueue, idx };
+}
+
+var stateRef: PlayerState | undefined;
+var setStateRef: any;
 
 export function PlayerProvider(props: { children: JSX.Element }) {
   const [showVisualizer, setShowVisualizer] = createSignal(false);
@@ -159,10 +182,8 @@ export function PlayerProvider(props: { children: JSX.Element }) {
     originalQueue: [],
   });
 
-  // Expose state and setState for native callbacks
-  contextStateRef = state;
-  storeSetState = setState;
-  nextRef = next;
+  stateRef = state;
+  setStateRef = setState;
   setter = (key, val) => setState(key, val);
 
   function currentTrack(): Audio | null {
@@ -170,44 +191,82 @@ export function PlayerProvider(props: { children: JSX.Element }) {
     return state.queue[state.queueIndex];
   }
 
+  // ── play / queue ────────────────────────────────────────
+
   async function play(track: Audio, queue?: Audio[], startIndex?: number) {
-    const newQueue = queue ?? [track];
-    let idx = startIndex ?? newQueue.indexOf(track);
-    setState("originalQueue", newQueue);
-    if (state.shuffle && newQueue.length > 1) {
-      const shuffled = shuffleArray(newQueue, idx);
-      setState("queue", shuffled);
-      setState("queueIndex", idx);
-    } else {
-      setState("queue", newQueue);
-      setState("queueIndex", idx);
-    }
+    const { newQueue, idx } = currentQueueForPlay(track, queue, startIndex);
+    setState("originalQueue", queue ?? [track]);
+    setState("queue", newQueue);
+    setState("queueIndex", idx);
     setState("isPlaying", true);
 
-    if (isCapacitor()) {
+    await ensureNativeBackend();
+
+    if (nativeBackend === "jellify" && jellifyPlayer) {
       try {
-        if (!nativeInitialized) {
-          await initNativeAudio(track);
-          const { duration } = await nativeAudio!.getDuration({ audioId: "main" });
-          setState("duration", duration);
-          await nativeAudio!.play({ audioId: "main" });
-          pollCurrentTime();
-          return;
-        } else if (nativeAudio) {
-          await nativeAudio.changeAudioSource({ audioId: "main", source: getStreamUrl(track.Id) });
-          await nativeAudio.changeMetadata({ audioId: "main", ...trackMeta(track) });
-          await nativeAudio.initialize({ audioId: "main" });
-          const { duration } = await nativeAudio.getDuration({ audioId: "main" });
-          setState("duration", duration);
-          await nativeAudio.play({ audioId: "main" });
-          pollCurrentTime();
-          return;
-        }
+        const items = newQueue.map((t) => ({
+          id: t.Id,
+          url: getStreamUrl(t.Id),
+          title: t.Name || "",
+          artist: t.ArtistItems?.[0]?.Name || t.Artists?.join(", ") || "",
+          album: t.Album || "",
+          artworkUrl: getImageUrl(t.AlbumId || t.Id, "Primary", 512),
+        }));
+        await jellifyPlayer.default.setQueue({ items, startIndex: idx });
+        await jellifyPlayer.default.setRepeatMode({ mode: REPEAT_MODE_MAP[state.repeat] ?? 0 });
+        await jellifyPlayer.default.play();
+        const pd = await jellifyPlayer.default.getDuration();
+        setState("duration", pd.duration);
+        pollCurrentTime();
+        return;
       } catch (e) {
-        console.error("Native audio error, falling back to web audio:", e);
+        console.error("JellifyPlayer error, falling back:", e);
+        nativeBackend = "none";
       }
-      // fall through to web audio
     }
+
+    if (nativeBackend === "mediagrid" && mediaGrid) {
+      try {
+        const readyPromise = new Promise<void>((resolve) => {
+          mediaGrid!.onAudioReady({ audioId: "main" }, () => resolve());
+        });
+        await mediaGrid.create({
+          audioSource: getStreamUrl(track.Id),
+          audioId: "main",
+          useForNotification: true,
+          ...trackMeta(track),
+        });
+        mediaGrid.onAudioEnd({ audioId: "main" }, async () => {
+          const s = stateRef;
+          if (!s) return;
+          if (s.repeat === "one") {
+            await mediaGrid!.seek({ audioId: "main", timeInSeconds: 0 });
+            await mediaGrid!.play({ audioId: "main" });
+          } else {
+            next();
+          }
+        });
+        mediaGrid.onPlaybackStatusChange({ audioId: "main" }, (result) => {
+          if (result.status === "playing") {
+            setStateRef?.("isPlaying", true);
+          } else if (result.status === "paused") {
+            setStateRef?.("isPlaying", false);
+          }
+        });
+        await mediaGrid.initialize({ audioId: "main" });
+        await readyPromise;
+        const { duration } = await mediaGrid.getDuration({ audioId: "main" });
+        setState("duration", duration);
+        await mediaGrid.play({ audioId: "main" });
+        pollCurrentTime();
+        return;
+      } catch (e) {
+        console.error("MediaGrid error, falling back to web audio:", e);
+        nativeBackend = "none";
+      }
+    }
+
+    // ── Web audio fallback ──────────────────────────────
 
     if (!audioRef) {
       audioRef = new Audio();
@@ -233,7 +292,7 @@ export function PlayerProvider(props: { children: JSX.Element }) {
     audioRef.play();
   }
 
-  function addToQueue(track: Audio) {
+  async function addToQueue(track: Audio) {
     if (state.queue.length === 0) {
       play(track);
       return;
@@ -242,17 +301,46 @@ export function PlayerProvider(props: { children: JSX.Element }) {
     if (state.shuffle) {
       setState("originalQueue", [...state.originalQueue, track]);
     }
+    if (nativeBackend === "jellify" && jellifyPlayer?.isJellifyPlayerAvailable()) {
+      try {
+        await jellifyPlayer.default.addToQueue({
+          items: [{
+            id: track.Id,
+            url: getStreamUrl(track.Id),
+            title: track.Name || "",
+            artist: track.ArtistItems?.[0]?.Name || track.Artists?.join(", ") || "",
+            album: track.Album || "",
+            artworkUrl: getImageUrl(track.AlbumId || track.Id, "Primary", 512),
+          }],
+        });
+      } catch {}
+    }
   }
 
+  // ── transport controls ─────────────────────────────────
+
   async function togglePlay() {
-    if (isCapacitor() && nativeAudio) {
-      const { isPlaying } = await nativeAudio.isPlaying({ audioId: "main" });
-      if (isPlaying) {
-        await nativeAudio.pause({ audioId: "main" });
+    if (nativeBackend === "jellify" && jellifyPlayer?.isJellifyPlayerAvailable()) {
+      const ps = await jellifyPlayer.default.getPlayerState();
+      if (ps.isPlaying) {
+        await jellifyPlayer.default.pause();
         setState("isPlaying", false);
         clearTimePoll();
       } else {
-        await nativeAudio.play({ audioId: "main" });
+        await jellifyPlayer.default.play();
+        setState("isPlaying", true);
+        pollCurrentTime();
+      }
+      return;
+    }
+    if (nativeBackend === "mediagrid" && mediaGrid) {
+      const { isPlaying } = await mediaGrid.isPlaying({ audioId: "main" });
+      if (isPlaying) {
+        await mediaGrid.pause({ audioId: "main" });
+        setState("isPlaying", false);
+        clearTimePoll();
+      } else {
+        await mediaGrid.play({ audioId: "main" });
         setState("isPlaying", true);
         pollCurrentTime();
       }
@@ -269,8 +357,14 @@ export function PlayerProvider(props: { children: JSX.Element }) {
   }
 
   async function pause() {
-    if (isCapacitor() && nativeAudio) {
-      await nativeAudio.pause({ audioId: "main" });
+    if (nativeBackend === "jellify" && jellifyPlayer?.isJellifyPlayerAvailable()) {
+      await jellifyPlayer.default.pause();
+      setState("isPlaying", false);
+      clearTimePoll();
+      return;
+    }
+    if (nativeBackend === "mediagrid" && mediaGrid) {
+      await mediaGrid.pause({ audioId: "main" });
       setState("isPlaying", false);
       clearTimePoll();
       return;
@@ -280,8 +374,14 @@ export function PlayerProvider(props: { children: JSX.Element }) {
   }
 
   async function resume() {
-    if (isCapacitor() && nativeAudio) {
-      await nativeAudio.play({ audioId: "main" });
+    if (nativeBackend === "jellify" && jellifyPlayer?.isJellifyPlayerAvailable()) {
+      await jellifyPlayer.default.play();
+      setState("isPlaying", true);
+      pollCurrentTime();
+      return;
+    }
+    if (nativeBackend === "mediagrid" && mediaGrid) {
+      await mediaGrid.play({ audioId: "main" });
       setState("isPlaying", true);
       pollCurrentTime();
       return;
@@ -290,24 +390,58 @@ export function PlayerProvider(props: { children: JSX.Element }) {
     setState("isPlaying", true);
   }
 
+  // ── track navigation ───────────────────────────────────
+
   async function playIndex(idx: number) {
     if (idx < 0 || idx >= state.queue.length) return;
     setState("queueIndex", idx);
     const track = state.queue[idx];
 
-    if (isCapacitor() && nativeAudio) {
+    if (nativeBackend === "jellify" && jellifyPlayer?.isJellifyPlayerAvailable()) {
       try {
-        await nativeAudio.changeAudioSource({ audioId: "main", source: getStreamUrl(track.Id) });
-        await nativeAudio.changeMetadata({ audioId: "main", ...trackMeta(track) });
-        await nativeAudio.initialize({ audioId: "main" });
-        registerOnAudioEnd();
-        const { duration } = await nativeAudio.getDuration({ audioId: "main" });
-        setState("duration", duration);
-        await nativeAudio.play({ audioId: "main" });
+        // Re-set queue with new start index
+        const items = state.queue.map((t) => ({
+          id: t.Id,
+          url: getStreamUrl(t.Id),
+          title: t.Name || "",
+          artist: t.ArtistItems?.[0]?.Name || t.Artists?.join(", ") || "",
+          album: t.Album || "",
+          artworkUrl: getImageUrl(t.AlbumId || t.Id, "Primary", 512),
+        }));
+        await jellifyPlayer.default.setQueue({ items, startIndex: idx });
+        await jellifyPlayer.default.play();
+        const pd = await jellifyPlayer.default.getDuration();
+        setState("duration", pd.duration);
         setState("isPlaying", true);
         pollCurrentTime();
       } catch (e) {
-        console.error("Native audio error:", e);
+        console.error("JellifyPlayer error in playIndex:", e);
+      }
+      return;
+    }
+
+    if (nativeBackend === "mediagrid" && mediaGrid) {
+      try {
+        await mediaGrid.changeAudioSource({ audioId: "main", source: getStreamUrl(track.Id) });
+        await mediaGrid.changeMetadata({ audioId: "main", ...trackMeta(track) });
+        await mediaGrid.initialize({ audioId: "main" });
+        mediaGrid.onAudioEnd({ audioId: "main" }, async () => {
+          const s = stateRef;
+          if (!s) return;
+          if (s.repeat === "one") {
+            await mediaGrid!.seek({ audioId: "main", timeInSeconds: 0 });
+            await mediaGrid!.play({ audioId: "main" });
+          } else {
+            next();
+          }
+        });
+        const { duration } = await mediaGrid.getDuration({ audioId: "main" });
+        setState("duration", duration);
+        await mediaGrid.play({ audioId: "main" });
+        setState("isPlaying", true);
+        pollCurrentTime();
+      } catch (e) {
+        console.error("MediaGrid error in playIndex:", e);
       }
       return;
     }
@@ -350,9 +484,16 @@ export function PlayerProvider(props: { children: JSX.Element }) {
     playIndex(idx);
   }
 
+  // ── seek / volume ──────────────────────────────────────
+
   async function seek(time: number) {
-    if (isCapacitor() && nativeAudio) {
-      await nativeAudio.seek({ audioId: "main", timeInSeconds: time });
+    if (nativeBackend === "jellify" && jellifyPlayer?.isJellifyPlayerAvailable()) {
+      await jellifyPlayer.default.seekTo({ timeSec: time });
+      setState("currentTime", time);
+      return;
+    }
+    if (nativeBackend === "mediagrid" && mediaGrid) {
+      await mediaGrid.seek({ audioId: "main", timeInSeconds: time });
       setState("currentTime", time);
       return;
     }
@@ -364,39 +505,77 @@ export function PlayerProvider(props: { children: JSX.Element }) {
 
   async function setVolume(vol: number) {
     setState("volume", vol);
-    if (isCapacitor() && nativeAudio) {
-      await nativeAudio.setVolume({ audioId: "main", volume: vol });
+    if (nativeBackend === "jellify" && jellifyPlayer?.isJellifyPlayerAvailable()) {
+      await jellifyPlayer.default.setVolume({ volume: vol });
+      return;
+    }
+    if (nativeBackend === "mediagrid" && mediaGrid) {
+      await mediaGrid.setVolume({ audioId: "main", volume: vol });
       return;
     }
     if (audioRef) audioRef.volume = vol;
   }
 
-  function toggleShuffle() {
+  // ── shuffle / repeat ───────────────────────────────────
+
+  async function toggleShuffle() {
     if (state.shuffle) {
       const track = state.queue[state.queueIndex];
       const origIdx = state.originalQueue.indexOf(track);
-      setState("queue", state.originalQueue);
-      setState("queueIndex", origIdx >= 0 ? origIdx : 0);
+      const newQueue = state.originalQueue;
+      const newIdx = origIdx >= 0 ? origIdx : 0;
+      setState("queue", newQueue);
+      setState("queueIndex", newIdx);
       setState("shuffle", false);
+      await syncNativeQueue(newQueue, newIdx);
     } else {
       setState("originalQueue", state.queue);
+      let newQueue = state.queue;
       if (state.queue.length > 1) {
-        const shuffled = shuffleArray(state.queue, state.queueIndex);
-        setState("queue", shuffled);
+        newQueue = shuffleArray(state.queue, state.queueIndex);
+        setState("queue", newQueue);
         setState("queueIndex", state.queueIndex);
       }
       setState("shuffle", true);
+      await syncNativeQueue(newQueue, state.queueIndex);
     }
   }
 
-  function getAudioElement(): HTMLAudioElement | undefined {
-    return audioRef;
+  async function syncNativeQueue(queue: Audio[], currentIndex: number) {
+    if (nativeBackend === "jellify" && jellifyPlayer?.isJellifyPlayerAvailable()) {
+      try {
+        const items = queue.map((t) => ({
+          id: t.Id,
+          url: getStreamUrl(t.Id),
+          title: t.Name || "",
+          artist: t.ArtistItems?.[0]?.Name || t.Artists?.join(", ") || "",
+          album: t.Album || "",
+          artworkUrl: getImageUrl(t.AlbumId || t.Id, "Primary", 512),
+        }));
+        await jellifyPlayer.default.replaceQueue({ items, currentIndex });
+      } catch (e) {
+        console.error("JellifyPlayer sync error:", e);
+      }
+    }
   }
 
-  function toggleRepeat() {
+  async function toggleRepeat() {
     const modes: ("off" | "all" | "one")[] = ["off", "all", "one"];
     const curr = modes.indexOf(state.repeat);
-    setState("repeat", modes[(curr + 1) % modes.length]);
+    const nextMode = modes[(curr + 1) % modes.length];
+    setState("repeat", nextMode);
+
+    if (nativeBackend === "jellify" && jellifyPlayer?.isJellifyPlayerAvailable()) {
+      try {
+        await jellifyPlayer.default.setRepeatMode({ mode: REPEAT_MODE_MAP[nextMode] ?? 0 });
+      } catch {}
+    }
+  }
+
+  // ── misc ───────────────────────────────────────────────
+
+  function getAudioElement(): HTMLAudioElement | undefined {
+    return audioRef;
   }
 
   function reorderQueue(newOrder: Audio[]) {
@@ -412,10 +591,22 @@ export function PlayerProvider(props: { children: JSX.Element }) {
   }
 
   async function checkAndAdvance() {
-    if (isCapacitor() && nativeAudio) {
+    if (nativeBackend === "jellify" && jellifyPlayer?.isJellifyPlayerAvailable()) {
       try {
-        const { currentTime } = await nativeAudio.getCurrentTime({ audioId: "main" });
-        const { duration } = await nativeAudio.getDuration({ audioId: "main" });
+        const ps = await jellifyPlayer.default.getPlayerState();
+        setState("currentTime", ps.currentTime);
+        setState("duration", ps.duration);
+        setState("isPlaying", ps.isPlaying);
+        if (ps.currentIndex >= 0 && ps.currentIndex !== state.queueIndex) {
+          setState("queueIndex", ps.currentIndex);
+        }
+      } catch {}
+      return;
+    }
+    if (nativeBackend === "mediagrid" && mediaGrid) {
+      try {
+        const { currentTime } = await mediaGrid.getCurrentTime({ audioId: "main" });
+        const { duration } = await mediaGrid.getDuration({ audioId: "main" });
         if (duration > 0 && currentTime >= duration - 1) {
           next();
         }

@@ -5,7 +5,6 @@ dist
 .netlify
 .vinxi
 app.config.timestamp_*.js
-/android
 
 # Capacitor native build artifacts
 android/app/build/
