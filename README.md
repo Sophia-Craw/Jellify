@@ -20,7 +20,7 @@ Jellify also let's you create, sort and modify playlists easily and intuitively 
 
 # Where can I use Jellify?
 
-Jellify supports macOS and Windows as a standalone app but can also be accessed via the web.
+Jellify supports macOS, Windows, Android and iOS. For now you have to build it yourself. but, soon there will be builds for macOS, Windows and Android for download.
 
 
 # For Developers & Contributors
@@ -43,7 +43,22 @@ Install NodeJS dependencies:
 npm i
 ```
 
+
+## Web
+
 Run live dev server:
 ```bash
 npm run dev
+```
+
+## Electron
+```bash
+npm run electron
+```
+
+## Capacitor (Mobile)
+
+```bash
+npm run build:cap
+npm run cap:open
 ```
