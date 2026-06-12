@@ -1,4 +1,5 @@
 import { createContext, useContext, createSignal, onMount, type JSX } from "solid-js";
+import { setAuthCache, invalidateAlbumCache } from "~/lib/jellyfin";
 
 const STORAGE_KEY = "jusic_auth";
 
@@ -33,6 +34,8 @@ function saveAuth(auth: AuthData | null) {
   } else {
     localStorage.removeItem(STORAGE_KEY);
   }
+  setAuthCache(auth);
+  invalidateAlbumCache();
 }
 
 export function AuthProvider(props: { children: JSX.Element }) {
@@ -42,6 +45,7 @@ export function AuthProvider(props: { children: JSX.Element }) {
 
   onMount(() => {
     const stored = loadAuth();
+    setAuthCache(stored);
     if (stored) {
       setAuth(stored);
       setAuthVersion((v) => v + 1);

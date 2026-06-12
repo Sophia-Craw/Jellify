@@ -18,7 +18,7 @@ export default function TrackRowCard(props: Props) {
   let longPressTimer: ReturnType<typeof setTimeout> | undefined;
   let isLongPress = false;
 
-  function handleTouchStart(e: TouchEvent) {
+  function handleTouchStart() {
     isLongPress = false;
     longPressTimer = setTimeout(() => {
       isLongPress = true;
@@ -29,8 +29,8 @@ export default function TrackRowCard(props: Props) {
 
   function handleTouchEnd(e: TouchEvent) {
     clearTimeout(longPressTimer);
-    if (!isLongPress) {
-      props.onClick();
+    if (isLongPress) {
+      e.preventDefault();
     }
   }
 
@@ -43,13 +43,22 @@ export default function TrackRowCard(props: Props) {
     setShowSheet(true);
   }
 
+  function handleClick(e: MouseEvent) {
+    if (isLongPress) {
+      isLongPress = false;
+      return;
+    }
+    props.onClick();
+  }
+
   const coverUrl = props.track.AlbumId || props.track.Id;
   const hasCover = props.track.AlbumPrimaryImageTag || props.track.ImageTags?.Primary;
 
   return (
     <>
-      <div
-        class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors select-none"
+      <button
+        type="button"
+        class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors select-none w-full text-left cursor-pointer"
         classList={{
           "bg-[#1db954]/10": props.isActive,
           "hover:bg-[#1a1a1a]": true,
@@ -58,6 +67,7 @@ export default function TrackRowCard(props: Props) {
         ontouchend={handleTouchEnd}
         ontouchmove={handleTouchMove}
         oncontextmenu={handleContextMenu}
+        onClick={handleClick}
       >
         <div class="w-10 h-10 rounded-md bg-[#333] overflow-hidden flex items-center justify-center flex-shrink-0">
           {hasCover ? (
@@ -81,7 +91,7 @@ export default function TrackRowCard(props: Props) {
           </p>
         </div>
         <span class="text-xs text-[#555] tabular-nums flex-shrink-0">{formatMobileDuration(props.track.RunTimeTicks)}</span>
-      </div>
+      </button>
 
       {showSheet() && (
         <TrackBottomSheet

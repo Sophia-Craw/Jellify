@@ -12,6 +12,8 @@ import UserMenu from "~/components/UserMenu";
 import AuthModal from "~/components/AuthModal";
 import TitleBar from "~/components/TitleBar";
 import { useIsMobile } from "~/lib/mobile";
+import { setupStatusBar, setupKeepAwake, setupWebviewGuardian, isCapacitor } from "~/lib/capacitor";
+import { headerTitle, headerSubtitle, headerImageUrl, headerImageShape, showHeaderExtra, playerExpanded } from "~/lib/mobileHeader";
 import { PlayerProvider, usePlayer } from "~/stores/player";
 import { PlaylistsProvider } from "~/stores/playlists";
 import { AuthProvider, useAuth } from "~/stores/auth";
@@ -21,7 +23,7 @@ function AppLayout(props: { children: any }) {
   const { auth, ready } = useAuth();
   const location = useLocation();
   const isRouting = useIsRouting();
-  const { showVisualizer } = usePlayer();
+  const { state, showVisualizer, checkAndAdvance } = usePlayer();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
@@ -36,6 +38,9 @@ function AppLayout(props: { children: any }) {
   let prevPath = location.pathname;
 
   onMount(() => {
+    setupStatusBar();
+    setupKeepAwake();
+    setupWebviewGuardian();
     if (sentinelRef && isMobile()) {
       const observer = new IntersectionObserver(
         ([entry]) => setStuck(!entry.isIntersecting),
@@ -43,6 +48,15 @@ function AppLayout(props: { children: any }) {
       );
       observer.observe(sentinelRef);
       onCleanup(() => observer.disconnect());
+    }
+    if (isCapacitor()) {
+      import("@capacitor/app").then(({ App }) => {
+        App.addListener("appStateChange", ({ isActive }) => {
+          if (isActive) {
+            checkAndAdvance();
+          }
+        });
+      });
     }
   });
 
@@ -55,6 +69,17 @@ function AppLayout(props: { children: any }) {
       setPageAnim("");
       setTimeout(() => setPageAnim(dir === "forward" ? "page-enter-forward" : "page-enter-back"), 20);
       prevPath = current;
+    }
+  });
+
+  createEffect(() => {
+    if (!isCapacitor()) return;
+    const ka = (window as any).__keepAwake;
+    if (!ka) return;
+    if (state.isPlaying) {
+      ka.keepAwake();
+    } else {
+      ka.allowSleep();
     }
   });
 
@@ -81,19 +106,48 @@ function AppLayout(props: { children: any }) {
         {/* Mobile header - fixed overlay */}
         <Show when={showHeader() && isMobile()}>
           <div
-            class="fixed top-0 left-0 right-0 z-40 h-12 pointer-events-none transition-all duration-300"
+            class="fixed top-0 left-0 right-0 z-40 pointer-events-none transition-all duration-300"
             classList={{
-              "bg-gradient-to-b from-black/90 to-transparent": !stuck(),
-              "bg-[#121212]/95 backdrop-blur border-b border-[#2a2a2a]": stuck(),
+              "bg-gradient-to-b from-black/90 to-transparent": !stuck() && !playerExpanded(),
+              "bg-[#121212]/95 backdrop-blur": stuck() && !playerExpanded(),
+              "bg-[#121212]": playerExpanded(),
             }}
+            style="padding-top: env(safe-area-inset-top, var(--safe-area-inset-top, 0px)); min-height: 3rem"
           >
-            <div class="flex items-center justify-between px-4 h-full pointer-events-auto">
+            <div class="flex items-center justify-between px-4 h-12 pointer-events-auto"
+              classList={{ "pointer-events-none opacity-0": playerExpanded() }}
+            >
               <button
                 onClick={() => window.history.back()}
                 class="w-9 h-9 flex items-center justify-center text-white hover:text-[#1db954] transition-colors cursor-pointer"
               >
                 <ChevronLeft size={22} />
               </button>
+              <div class="flex items-center gap-2 flex-1 min-w-0 mr-auto">
+                <Show when={showHeaderExtra() && headerImageUrl()}>
+                  <img
+                    src={headerImageUrl()}
+                    alt=""
+                    class="w-8 h-8 object-cover flex-shrink-0"
+                    classList={{
+                      "rounded-full": headerImageShape() === "circle",
+                      "rounded": headerImageShape() === "square",
+                    }}
+                  />
+                </Show>
+                <div
+                  class="min-w-0 transition-opacity duration-300"
+                  classList={{
+                    "opacity-0": !showHeaderExtra(),
+                    "opacity-100": showHeaderExtra(),
+                  }}
+                >
+                  <p class="text-sm font-medium text-white truncate">{headerTitle()}</p>
+                  <Show when={headerSubtitle()}>
+                    <p class="text-xs text-[#888] truncate">{headerSubtitle()}</p>
+                  </Show>
+                </div>
+              </div>
               <button
                 onClick={() => setShowProfileSheet(true)}
                 class="w-8 h-8 rounded-full overflow-hidden border border-[#2a2a2a] hover:border-[#1db954] transition-colors cursor-pointer"
@@ -119,7 +173,9 @@ function AppLayout(props: { children: any }) {
             classList={{
               "pb-20": showChrome() && !isMobile(),
               "pb-28": showChrome() && isMobile(),
-              "pt-12": showChrome() && isMobile(),
+            }}
+            style={{
+              paddingTop: showChrome() && isMobile() ? "calc(env(safe-area-inset-top, var(--safe-area-inset-top, 0px)) + 3rem)" : "",
             }}
           >
             {/* Header - desktop only */}

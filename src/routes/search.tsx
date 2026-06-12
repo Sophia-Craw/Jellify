@@ -1,11 +1,10 @@
-import { createResource, createSignal, For, Show, onMount, onCleanup } from "solid-js";
+import { createResource, createSignal, For, Show, onMount } from "solid-js";
 import { searchAll, getImageUrl, fetchGenres, makeSlug } from "~/lib/jellyfin";
-import { Search, X, Music, Play, Clock } from "lucide-solid";
+import { Search, X, Music, Play, Clock, AlertTriangle } from "lucide-solid";
 import { colorFromString } from "~/lib/colors";
 import type { SearchHintResult, Genre } from "~/lib/types";
 import { usePlayer } from "~/stores/player";
 import { useAuth } from "~/stores/auth";
-import { useIsMobile } from "~/lib/mobile";
 
 function loadRecent(): { term: string; ts: number }[] {
   if (typeof document === "undefined") return [];
@@ -22,30 +21,19 @@ function saveRecent(term: string) {
 
 export default function SearchPage() {
   const { authVersion } = useAuth();
-  const isMobile = useIsMobile();
   const [query, setQuery] = createSignal("");
   const [searchTerm, setSearchTerm] = createSignal("");
   const [hydrated, setHydrated] = createSignal(false);
   const [recent, setRecent] = createSignal<{ term: string; ts: number }[]>([]);
-  const [showSticky, setShowSticky] = createSignal(false);
-  let sentinelRef: HTMLDivElement | undefined;
 
-  const [genres] = createResource(() => authVersion(), () => fetchGenres(), { initialValue: [] });
+  const [genres, genresRes] = createResource(() => authVersion(), () => fetchGenres(), { initialValue: [] });
 
   onMount(() => {
     setRecent(loadRecent());
     setHydrated(true);
-
-    if (!sentinelRef) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setShowSticky(!entry.isIntersecting),
-      { threshold: 0 }
-    );
-    observer.observe(sentinelRef);
-    onCleanup(() => observer.disconnect());
   });
 
-  const [results] = createResource(searchTerm, async (term) => {
+  const [results, resultsRes] = createResource(searchTerm, async (term) => {
     if (!term.trim()) return null;
     return searchAll(term, 30);
   });
@@ -79,36 +67,35 @@ export default function SearchPage() {
   const showDefault = () => !searchTerm().trim();
 
   return (
-    <div class="pt-6 px-6 pb-2">
-      <div
-        class="sticky top-0 z-30 transition-all duration-200 -mx-6 px-6 mb-6"
-        classList={{
-          "bg-[#121212]/95 backdrop-blur border-b border-[#2a2a2a]": showSticky() && isMobile(),
-        }}
-      >
-        <form onSubmit={handleSubmit} class="relative py-3">
-          <Search size={18} class="absolute left-3 top-1/2 -translate-y-1/2 text-[#555]" />
-        <input
-          type="text"
-          value={query()}
-          onInput={(e) => setQuery(e.currentTarget.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Search artists, albums, tracks..."
-          class="w-full bg-[#1a1a1a] text-white text-sm pl-10 pr-16 py-2.5 rounded-lg border border-[#2a2a2a] outline-none focus:border-[#1db954] transition-colors"
-        />
-        <Show when={!query()}>
-          <kbd class="absolute right-3 top-1/2 -translate-y-1/2 text-[#aaa] text-xs bg-[#2a2a2a] px-1.5 py-0.5 rounded font-mono pointer-events-none">
-            Enter
-          </kbd>
-        </Show>
-        <Show when={query()}>
-          <button type="button" onClick={clearSearch} class="absolute right-3 top-1/2 -translate-y-1/2 text-[#555] hover:text-white transition-colors cursor-pointer">
-            <X size={16} />
-          </button>
-        </Show>
-      </form>
-      </div>
-      <div ref={sentinelRef} class="h-px" />
+    <div class="pt-32 px-6 pb-2">
+      <form onSubmit={handleSubmit} class="relative mb-6">
+        <Search size={18} class="absolute left-3 top-1/2 -translate-y-1/2 text-[#555]" />
+      <input
+        type="text"
+        value={query()}
+        onInput={(e) => setQuery(e.currentTarget.value)}
+        onKeyDown={handleKeyDown}
+        placeholder="Search artists, albums, tracks..."
+        class="w-full bg-[#1a1a1a] text-white text-sm pl-10 pr-16 py-2.5 rounded-lg border border-[#2a2a2a] outline-none focus:border-[#1db954] transition-colors"
+      />
+      <Show when={!query()}>
+        <kbd class="absolute right-3 top-1/2 -translate-y-1/2 text-[#aaa] text-xs bg-[#2a2a2a] px-1.5 py-0.5 rounded font-mono pointer-events-none">
+          Enter
+        </kbd>
+      </Show>
+      <Show when={query()}>
+        <button type="button" onClick={clearSearch} class="absolute right-3 top-1/2 -translate-y-1/2 text-[#555] hover:text-white transition-colors cursor-pointer">
+          <X size={16} />
+        </button>
+      </Show>
+    </form>
+
+      <Show when={genresRes.error || resultsRes.error}>
+        <div class="flex items-center gap-2 mb-4 px-3 py-2 bg-red-900/20 border border-red-900/30 rounded-lg text-xs text-red-400">
+          <AlertTriangle size={14} />
+          <span>Failed to load search data. Check your connection and server settings.</span>
+        </div>
+      </Show>
 
       <Show when={showDefault()}>
         <div class="mb-8">

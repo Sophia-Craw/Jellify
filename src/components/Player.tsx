@@ -1,11 +1,10 @@
 import { createSignal, createEffect, onMount, onCleanup, Show } from "solid-js";
 import { A } from "@solidjs/router";
 import { usePlayer } from "~/stores/player";
-import { getImageUrl } from "~/lib/jellyfin";
+import { getImageUrl, makeSlug } from "~/lib/jellyfin";
 import MarqueeText from "./MarqueeText";
 import { Music, Shuffle, SkipBack, Play, Pause, SkipForward, Repeat, Repeat1, ListMusic, Volume2, Plus, Waves, ArrowUpDown, GripVertical } from "lucide-solid";
 import AddToPlaylistDialog from "./AddToPlaylistDialog";
-import Sortable from "sortablejs";
 
 export default function Player() {
   const player = usePlayer();
@@ -16,11 +15,11 @@ export default function Player() {
   let queueRef: HTMLDivElement | undefined;
   let toggleRef: HTMLButtonElement | undefined;
   let queueContainer: HTMLDivElement | undefined;
-  let queueSortableInstance: Sortable | undefined;
+  let queueSortableInstance: any;
 
-  function createQueueSortableInstance() {
+  async function createQueueSortableInstance() {
     if (!reorderQueueMode() || !queueContainer || typeof document === "undefined") return;
-    
+    const Sortable = (await import("sortablejs")).default;
     queueSortableInstance = new Sortable(queueContainer, {
       handle: ".queue-drag-handle",
       animation: 200,
@@ -115,11 +114,14 @@ export default function Player() {
           </div>
         )}
         <div class="ml-3 min-w-0">
-          <MarqueeText class="max-w-[200px]">
+          <MarqueeText class="max-w-[200px]" key={track()?.Id}>
             <Show when={track()?.AlbumId} fallback={
-              <span class="text-sm text-white">
+              <A
+                href={`/virtual-album/${makeSlug(track()?.Album || "Unknown Album")}`}
+                class="text-sm text-white hover:underline"
+              >
                 {track()?.Name || "No track playing"}
-              </span>
+              </A>
             }>
               <A
                 href={`/album/${track()!.AlbumId}`}

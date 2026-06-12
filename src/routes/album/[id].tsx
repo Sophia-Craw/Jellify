@@ -1,28 +1,42 @@
-import { createResource, createMemo, createSignal, onMount, onCleanup, Show } from "solid-js";
+import { createResource, createMemo, createEffect, onMount, onCleanup, Show } from "solid-js";
 import { useParams, A } from "@solidjs/router";
 import { fetchAlbumInfo, fetchAlbumTracks, getImageUrl } from "~/lib/jellyfin";
-import { useIsMobile } from "~/lib/mobile";
-import { Music } from "lucide-solid";
+import { Music, AlertTriangle } from "lucide-solid";
 import TrackTable from "~/components/TrackTable";
+import { setHeaderTitle, setHeaderSubtitle, setHeaderImageUrl, setShowHeaderExtra } from "~/lib/mobileHeader";
 
 export default function AlbumPage() {
   const params = useParams();
-  const [album] = createResource(() => params.id, fetchAlbumInfo);
-  const [tracks] = createResource(() => params.id, fetchAlbumTracks);
+  const [album, albumRes] = createResource(() => params.id, fetchAlbumInfo);
+  const [tracks, tracksRes] = createResource(() => params.id, fetchAlbumTracks);
 
-  const isMobile = useIsMobile();
-  const [showSticky, setShowSticky] = createSignal(false);
+  const hasError = () => albumRes.error || tracksRes.error;
 
   let sentinelRef: HTMLDivElement | undefined;
 
   onMount(() => {
+    setHeaderTitle("");
+    setHeaderSubtitle("");
+    setHeaderImageUrl("");
+    setShowHeaderExtra(false);
     if (!sentinelRef) return;
     const observer = new IntersectionObserver(
-      ([entry]) => setShowSticky(!entry.isIntersecting),
+      ([entry]) => setShowHeaderExtra(!entry.isIntersecting),
       { threshold: 0 }
     );
     observer.observe(sentinelRef);
-    onCleanup(() => observer.disconnect());
+    onCleanup(() => {
+      observer.disconnect();
+      setShowHeaderExtra(false);
+    });
+  });
+
+  createEffect(() => {
+    const a = album();
+    if (!a) return;
+    setHeaderTitle(a.Name);
+    setHeaderSubtitle(a.AlbumArtist || a.Artists?.join(", ") || "");
+    setHeaderImageUrl(a.ImageTags?.Primary ? getImageUrl(a.Id, "Primary", 60) : "");
   });
 
   const duration = createMemo(() => {
@@ -36,47 +50,10 @@ export default function AlbumPage() {
   });
 
   return (
-    <div class="pt-6 px-6 pb-2">
+    <div class="pt-32 px-6 pb-2">
       {album() && (
         <>
-          <div
-            class="sticky top-0 z-30 -mx-6 px-4 bg-[#121212]/95 backdrop-blur border-b border-[#2a2a2a] transition-all duration-300 ease-out"
-            classList={{
-              "opacity-0 pointer-events-none translate-y-0": !showSticky() || !isMobile(),
-              "opacity-100": showSticky() && isMobile(),
-            }}
-            style={{
-              transform: showSticky() && isMobile() ? 'translateY(0)' : 'translateY(-100%)',
-            }}
-          >
-            <div class="flex items-center gap-3 h-12">
-              <Show when={album()!.ImageTags?.Primary} fallback={
-                <div class="w-8 h-8 rounded bg-[#333] flex items-center justify-center flex-shrink-0">
-                  <Music size={14} class="text-[#555]" />
-                </div>
-              }>
-                <img
-                  src={getImageUrl(album()!.Id, "Primary", 60)}
-                  alt={album()!.Name}
-                  class="w-8 h-8 rounded object-cover flex-shrink-0"
-                />
-              </Show>
-              <div class="flex-1 min-w-0">
-                <p class="text-sm font-medium text-white truncate">{album()!.Name}</p>
-                <p class="text-xs text-[#888] truncate">{album()!.AlbumArtist || album()!.Artists?.join(", ")}</p>
-              </div>
-            </div>
-          </div>
-
-          <div
-            class="flex flex-col sm:flex-row gap-6 mb-8 items-center sm:items-start text-center sm:text-left transition-all duration-300 ease-out origin-top"
-            style={{
-              transform: showSticky() && isMobile()
-                ? 'scale(0.85) translateY(-20px)'
-                : 'scale(1) translateY(0)',
-              opacity: showSticky() && isMobile() ? 0 : 1,
-            }}
-          >
+          <div class="flex flex-col sm:flex-row gap-6 mb-8 items-center sm:items-start text-center sm:text-left">
             <Show when={album()!.ImageTags?.Primary} fallback={
               <div class="w-48 h-48 rounded-lg flex items-center justify-center bg-[#242424] text-[#555] flex-shrink-0">
                 <Music size={48} />
@@ -112,6 +89,13 @@ export default function AlbumPage() {
           <div ref={sentinelRef} class="h-px" />
         </>
       )}
+
+      <Show when={hasError()}>
+        <div class="flex items-center gap-2 mb-4 px-3 py-2 bg-red-900/20 border border-red-900/30 rounded-lg text-xs text-red-400">
+          <AlertTriangle size={14} />
+          <span>Failed to load album data. Check your connection and server settings.</span>
+        </div>
+      </Show>
 
       {tracks() && <TrackTable tracks={tracks()!} />}
     </div>

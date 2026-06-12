@@ -1,42 +1,53 @@
-import { createResource, createSignal, onMount, onCleanup, Show, For } from "solid-js";
+import { createResource, onMount, onCleanup, Show, For } from "solid-js";
 import { A } from "@solidjs/router";
 import { fetchLatestAlbums, fetchFrequentAlbums, fetchArtists } from "~/lib/jellyfin";
 import type { MusicAlbum, MusicArtist } from "~/lib/types";
 import AlbumCard from "~/components/AlbumCard";
 import ArtistCard from "~/components/ArtistCard";
 import { useAuth } from "~/stores/auth";
-import { useIsMobile } from "~/lib/mobile";
+import { AlertTriangle } from "lucide-solid";
+import { setHeaderTitle, setHeaderSubtitle, setHeaderImageUrl, setShowHeaderExtra } from "~/lib/mobileHeader";
 
 export default function Home() {
   const { authVersion } = useAuth();
-  const isMobile = useIsMobile();
-  const [showSticky, setShowSticky] = createSignal(false);
+
+  onMount(() => {
+    setHeaderTitle("Home");
+    setHeaderSubtitle("");
+    setHeaderImageUrl("");
+    setShowHeaderExtra(false);
+  });
+
+  const [latest, latestRes] = createResource(() => authVersion(), () => fetchLatestAlbums(12), { initialValue: [] });
+  const [frequent, frequentRes] = createResource(() => authVersion(), () => fetchFrequentAlbums(12), { initialValue: [] });
+  const [artists, artistsRes] = createResource(() => authVersion(), () => fetchArtists(), { initialValue: [] });
+
+  const hasError = () => latestRes.error || frequentRes.error || artistsRes.error;
+
   let sentinelRef: HTMLDivElement | undefined;
 
   onMount(() => {
     if (!sentinelRef) return;
     const observer = new IntersectionObserver(
-      ([entry]) => setShowSticky(!entry.isIntersecting),
+      ([entry]) => setShowHeaderExtra(!entry.isIntersecting),
       { threshold: 0 }
     );
     observer.observe(sentinelRef);
-    onCleanup(() => observer.disconnect());
+    onCleanup(() => {
+      observer.disconnect();
+      setShowHeaderExtra(false);
+    });
   });
 
-  const [latest] = createResource(() => authVersion(), () => fetchLatestAlbums(12), { initialValue: [] });
-  const [frequent] = createResource(() => authVersion(), () => fetchFrequentAlbums(12), { initialValue: [] });
-  const [artists] = createResource(() => authVersion(), () => fetchArtists(), { initialValue: [] });
-
   return (
-    <div class="pt-6 px-6 pb-2">
-      <div
-        class="sticky top-0 z-30 transition-all duration-200 -mx-6 px-6 mb-6"
-        classList={{
-          "bg-[#121212]/95 backdrop-blur border-b border-[#2a2a2a]": showSticky() && isMobile(),
-        }}
-      >
-        <h1 class="text-2xl font-bold text-white py-3">Home</h1>
-      </div>
+    <div class="pt-32 px-6 pb-2">
+      <Show when={hasError()}>
+        <div class="flex items-center gap-2 mb-4 px-3 py-2 bg-red-900/20 border border-red-900/30 rounded-lg text-xs text-red-400">
+          <AlertTriangle size={14} />
+          <span>Failed to load some content. Check your connection and server settings.</span>
+        </div>
+      </Show>
+      <h1 class="text-2xl font-bold text-white mb-6">Home</h1>
       <div ref={sentinelRef} class="h-px" />
 
       <Show when={latest().length > 0}>

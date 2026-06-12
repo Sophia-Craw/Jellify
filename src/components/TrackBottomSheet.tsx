@@ -2,7 +2,7 @@ import { createSignal, onCleanup } from "solid-js";
 import { ListMusic, Plus, Trash2 } from "lucide-solid";
 import { usePlayer } from "~/stores/player";
 import { usePlaylists } from "~/stores/playlists";
-import AddToPlaylistDialog from "./AddToPlaylistDialog";
+import MobileCreatePlaylist from "./MobileCreatePlaylist";
 import type { Audio } from "~/lib/types";
 
 interface Props {
@@ -14,7 +14,7 @@ interface Props {
 export default function TrackBottomSheet(props: Props) {
   const player = usePlayer();
   const { removeTrack } = usePlaylists();
-  const [showAddDialog, setShowAddDialog] = createSignal(false);
+  const [showAddSheet, setShowAddSheet] = createSignal(false);
   const [closing, setClosing] = createSignal(false);
   const [removed, setRemoved] = createSignal(false);
 
@@ -75,7 +75,7 @@ export default function TrackBottomSheet(props: Props) {
             Add to queue
           </button>
           <button
-            onClick={() => { setShowAddDialog(true); }}
+            onClick={() => { setShowAddSheet(true); }}
             class="w-full flex items-center gap-3 px-5 py-3.5 text-sm text-[#e0e0e0] hover:bg-[#242424] transition-colors cursor-pointer"
           >
             <Plus size={18} />
@@ -94,11 +94,10 @@ export default function TrackBottomSheet(props: Props) {
         <div class="h-safe-area-bottom" />
       </div>
 
-      {showAddDialog() && (
-        <AddToPlaylistDialog
+      {showAddSheet() && (
+        <MobileCreatePlaylist
           trackId={props.track.Id}
-          trackName={props.track.Name}
-          onClose={() => { setShowAddDialog(false); close(); }}
+          onClose={() => { setShowAddSheet(false); close(); }}
         />
       )}
     </>

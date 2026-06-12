@@ -1,7 +1,6 @@
 import { A, useLocation } from "@solidjs/router";
 import { createSignal, createEffect, onMount, onCleanup } from "solid-js";
 import { House, Library, Search, LogIn, LogOut, PanelLeftClose, PanelLeftOpen, Plus, Music, Pencil, GripVertical, ArrowUpDown } from "lucide-solid";
-import Sortable from "sortablejs";
 import { usePlaylists } from "~/stores/playlists";
 import { useAuth } from "~/stores/auth";
 import PlaylistEditDialog from "./PlaylistEditDialog";
@@ -15,13 +14,13 @@ export default function Sidebar() {
   const [editingId, setEditingId] = createSignal<string | null>(null);
   const [hydrated, setHydrated] = createSignal(false);
   let sortableContainer: HTMLDivElement | undefined;
-  let sortableInstance: Sortable | undefined;
+  let sortableInstance: any;
   let creating = false;
   onMount(() => setHydrated(true));
 
-  function createSortableInstance() {
+  async function createSortableInstance() {
     if (!reorderMode() || collapsed() || !sortableContainer || typeof document === "undefined") return;
-    
+    const Sortable = (await import("sortablejs")).default;
     sortableInstance = new Sortable(sortableContainer, {
       handle: ".drag-handle",
       animation: 200,
@@ -149,10 +148,10 @@ export default function Sidebar() {
             </button>
           )}
         </div>
-        {!hydrated() && !auth && !collapsed() && (
+        {!hydrated() && !auth() && !collapsed() && (
           <div class="px-3 py-1.5 text-xs text-[#555]">Loading...</div>
         )}
-        {hydrated() && !auth && (
+        {hydrated() && !auth() && (
           <A
             href="/auth"
             class={`flex items-center h-9 rounded-md transition-colors text-[#888] hover:text-white hover:bg-[#1a1a1a] ${
@@ -224,11 +223,11 @@ export default function Sidebar() {
         )}
       </nav>
 
-      {hydrated() && auth && (
+      {hydrated() && auth() && (
         <div class="border-t border-[#2a2a2a] px-3 py-2">
           {!collapsed() && (
             <div class="flex items-center justify-between mb-1">
-              <span class="text-xs text-[#555] truncate max-w-[120px]">{auth.userId}</span>
+              <span class="text-xs text-[#555] truncate max-w-[120px]">{auth()?.userId}</span>
               <button onClick={logout} class="text-[#555] hover:text-white transition-colors cursor-pointer" title="Sign out">
                 <LogOut size={14} />
               </button>

@@ -7,9 +7,17 @@
     "start": "vinxi start",
     "preview": "vinxi preview",
     "electron": "electron electron/main.cjs",
-    "electron:build": "npm run build && npm run electron"
+    "electron:build": "npm run build && npm run electron",
+    "build:cap": "CAPACITOR=true vinxi build && find .output/public -name '*.gz' -o -name '*.br' | xargs rm -f && npx cap sync",
+    "cap:open": "npx cap open android"
   },
   "dependencies": {
+    "@capacitor-community/keep-awake": "^8.0.1",
+    "@capacitor/android": "^8.4.0",
+    "@capacitor/cli": "^8.4.0",
+    "@capacitor/core": "^8.4.0",
+    "@capgo/capacitor-webview-guardian": "^8.0.16",
+    "@mediagrid/capacitor-native-audio": "^3.0.0",
     "@solidjs/router": "^0.15.0",
     "@solidjs/start": "1.3.2",
     "lucide-solid": "^1.17.0",
@@ -21,7 +29,8 @@
     "@tailwindcss/vite": "^4.0.7",
     "@types/sortablejs": "^1.15.9",
     "electron": "^34.0.0",
-    "tailwindcss": "^4.0.7"
+    "tailwindcss": "^4.0.7",
+    "typescript": "^6.0.3"
   },
   "engines": {
     "node": ">=22"

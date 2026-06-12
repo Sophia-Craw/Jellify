@@ -1,5 +1,5 @@
 import { A, useLocation } from "@solidjs/router";
-import { House, Search, Library, Play } from "lucide-solid";
+import { House, Search, Library } from "lucide-solid";
 
 const items = [
   { href: "/", label: "Home", icon: House },
@@ -11,6 +11,7 @@ export default function MobileNavBar() {
   const location = useLocation();
 
   return (
+    <>
     <nav class="flex items-center justify-around h-14 bg-[#121212] border-t border-[#2a2a2a] shrink-0">
       {items.map((item) => {
         const isActive = location.pathname === item.href
@@ -27,5 +28,7 @@ export default function MobileNavBar() {
         );
       })}
     </nav>
+    <div class="h-safe-area-bottom shrink-0 bg-[#121212]" />
+    </>
   );
 }

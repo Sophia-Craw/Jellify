@@ -5,6 +5,14 @@ dist
 .netlify
 .vinxi
 app.config.timestamp_*.js
+/android
+
+# Capacitor native build artifacts
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+capacitor.settings.json
 
 # Environment
 .env
@@ -12,6 +20,9 @@ app.config.timestamp_*.js
 
 # dependencies
 /node_modules
+
+# Capacitor asset sources (generated icon inputs)
+/assets
 
 # IDEs and editors
 /.idea

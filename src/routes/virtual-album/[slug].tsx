@@ -1,14 +1,15 @@
-import { createResource, createMemo, createSignal, onMount, onCleanup, Show } from "solid-js";
+import { createResource, createMemo, createEffect, onMount, onCleanup, Show } from "solid-js";
 import { useParams, A } from "@solidjs/router";
 import { fetchOrphanedTracks, getImageUrl } from "~/lib/jellyfin";
 import { useInfiniteScroll } from "~/lib/useInfiniteScroll";
 import { useAuth } from "~/stores/auth";
 import { usePlayer } from "~/stores/player";
-import { Music, ArrowLeft } from "lucide-solid";
+import { Music } from "lucide-solid";
 import TrackMenu from "~/components/TrackMenu";
 import TrackRowCard from "~/components/TrackRowCard";
 import { useIsMobile } from "~/lib/mobile";
 import type { Audio, VirtualAlbum } from "~/lib/types";
+import { setHeaderTitle, setHeaderSubtitle, setHeaderImageUrl, setShowHeaderExtra } from "~/lib/mobileHeader";
 
 function formatDuration(ticks?: number): string {
   if (!ticks) return "0:00";
@@ -25,17 +26,23 @@ export default function VirtualAlbumPage() {
   const { state } = player;
   const isMobile = useIsMobile();
 
-  const [showSticky, setShowSticky] = createSignal(false);
   let sentinelRef: HTMLDivElement | undefined;
 
   onMount(() => {
+    setHeaderTitle("");
+    setHeaderSubtitle("");
+    setHeaderImageUrl("");
+    setShowHeaderExtra(false);
     if (!sentinelRef) return;
     const observer = new IntersectionObserver(
-      ([entry]) => setShowSticky(!entry.isIntersecting),
+      ([entry]) => setShowHeaderExtra(!entry.isIntersecting),
       { threshold: 0 }
     );
     observer.observe(sentinelRef);
-    onCleanup(() => observer.disconnect());
+    onCleanup(() => {
+      observer.disconnect();
+      setShowHeaderExtra(false);
+    });
   });
 
   const [orphans] = createResource(() => authVersion(), (v) => fetchOrphanedTracks(v));
@@ -48,6 +55,14 @@ export default function VirtualAlbumPage() {
   const tracks = createMemo<Audio[]>(() => album()?.tracks || []);
 
   const trackScroll = useInfiniteScroll(tracks as () => Audio[], 50);
+
+  createEffect(() => {
+    const a = album();
+    if (!a) return;
+    setHeaderTitle(a.name);
+    setHeaderSubtitle(a.albumArtist);
+    setHeaderImageUrl(a.tracks[0]?.ImageTags?.Primary ? getImageUrl(a.tracks[0].Id, "Primary", 60) : "");
+  });
 
   const totalDuration = createMemo(() => {
     const t = tracks();
@@ -72,58 +87,13 @@ export default function VirtualAlbumPage() {
   });
 
   return (
-    <div class="pt-6 px-6 pb-2">
-      <A
-        href="/library?tab=albums"
-        class="inline-flex items-center gap-2 text-[#888] hover:text-white text-sm mb-4 transition-colors"
-      >
-        <ArrowLeft size={16} />
-        Back to albums
-      </A>
-
+    <div class="pt-32 px-6 pb-2">
       <Show when={!orphans() || orphans.loading} fallback={
         <Show when={album()} fallback={
           <p class="text-[#888] text-sm mt-8 text-center">Album not found</p>
         }>
           <>
-          <div
-            class="sticky top-0 z-30 -mx-6 px-4 bg-[#121212]/95 backdrop-blur border-b border-[#2a2a2a] transition-all duration-300 ease-out"
-            classList={{
-              "opacity-0": !showSticky() || !isMobile(),
-              "opacity-100": showSticky() && isMobile(),
-            }}
-            style={{
-              transform: showSticky() && isMobile() ? 'translateY(0)' : 'translateY(-100%)',
-            }}
-          >
-            <div class="flex items-center gap-3 h-12">
-              <Show when={hasCover()} fallback={
-                <div class="w-8 h-8 rounded bg-[#333] flex items-center justify-center flex-shrink-0">
-                  <Music size={14} class="text-[#555]" />
-                </div>
-              }>
-                <img
-                  src={getImageUrl(firstTrack()!.Id, "Primary", 60)}
-                  alt={album()!.name}
-                  class="w-8 h-8 rounded object-cover flex-shrink-0"
-                />
-              </Show>
-              <div class="flex-1 min-w-0">
-                <p class="text-sm font-medium text-white truncate">{album()!.name}</p>
-                <p class="text-xs text-[#888] truncate">{album()!.albumArtist}</p>
-              </div>
-            </div>
-          </div>
-
-          <div
-            class="flex flex-col sm:flex-row gap-6 mb-8 items-center sm:items-start text-center sm:text-left transition-all duration-300 ease-out origin-top"
-            style={{
-              transform: showSticky() && isMobile()
-                ? 'scale(0.85) translateY(-20px)'
-                : 'scale(1) translateY(0)',
-              opacity: showSticky() && isMobile() ? 0 : 1,
-            }}
-          >
+          <div class="flex flex-col sm:flex-row gap-6 mb-8 items-center sm:items-start text-center sm:text-left">
             <Show when={hasCover()} fallback={
               <div class="w-48 h-48 rounded-lg flex items-center justify-center bg-[#242424] text-[#555] flex-shrink-0">
                 <Music size={48} />

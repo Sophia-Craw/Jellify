@@ -1,18 +1,33 @@
 import type { ItemsResponse, MusicAlbum, MusicArtist, Audio, Genre, SearchHintResult, SearchHint, VirtualAlbum } from "./types";
 
 let cachedUserId: string | null = null;
+let authCache: StoredAuth | null | undefined = undefined;
 
-interface StoredAuth {
+const albumsCache = new Map<string, MusicAlbum[]>();
+
+export function invalidateAlbumCache() {
+  albumsCache.clear();
+}
+
+let orphanCache: { albums: VirtualAlbum[]; version: number } | null = null;
+
+export interface StoredAuth {
   serverUrl: string;
   accessToken: string;
   userId: string;
 }
 
+export function setAuthCache(auth: StoredAuth | null) {
+  authCache = auth;
+}
+
 function readAuth(): StoredAuth | null {
+  if (authCache !== undefined) return authCache;
   if (typeof document === "undefined") return null;
   try {
     const raw = localStorage.getItem("jusic_auth");
-    return raw ? JSON.parse(raw) : null;
+    authCache = raw ? JSON.parse(raw) : null;
+    return authCache;
   } catch { return null; }
 }
 
@@ -30,12 +45,10 @@ async function getUserId(): Promise<string> {
   const auth = readAuth();
   if (auth?.userId) return auth.userId;
   if (cachedUserId) return cachedUserId;
-  const baseUrl = getBaseUrl();
-  const token = getToken();
-  if (!baseUrl || !token) return "";
+  if (!auth?.serverUrl || !auth.accessToken) return "";
   try {
-    const res = await fetch(`${baseUrl}/Users`, {
-      headers: { "X-Emby-Token": token },
+    const res = await fetch(`${auth.serverUrl}/Users`, {
+      headers: { "X-Emby-Token": auth.accessToken },
     });
     if (!res.ok) return "";
     const users: { Id: string }[] = await res.json();
@@ -45,34 +58,39 @@ async function getUserId(): Promise<string> {
 }
 
 async function api<T>(path: string, params?: Record<string, string>): Promise<T> {
-  const uid = await getUserId();
-  const baseUrl = getBaseUrl();
-  const token = getToken();
-  if (!uid || !baseUrl || !token) {
+  const auth = readAuth();
+  if (!auth?.serverUrl || !auth.accessToken) {
     return { Items: [] } as unknown as T;
   }
-  const url = new URL(`${baseUrl}${path.replace("{userId}", uid)}`);
+  const uid = auth.userId || await getUserId();
+  if (!uid) return { Items: [] } as unknown as T;
+  const url = new URL(`${auth.serverUrl}${path.replace("{userId}", uid)}`);
   if (params) {
     for (const [k, v] of Object.entries(params)) {
       url.searchParams.set(k, v);
     }
   }
   const res = await fetch(url.toString(), {
-    headers: { "X-Emby-Token": token },
+    headers: { "X-Emby-Token": auth.accessToken },
   });
   if (!res.ok) return { Items: [] } as unknown as T;
   return res.json();
 }
 
 export function getImageUrl(itemId: string, imageType = "Primary", quality = 90): string {
-  return `${getBaseUrl()}/Items/${itemId}/Images/${imageType}?quality=${quality}&api_key=${getToken()}`;
+  const auth = readAuth();
+  return `${auth?.serverUrl || ""}/Items/${itemId}/Images/${imageType}?quality=${quality}&api_key=${auth?.accessToken || ""}`;
 }
 
 export function getStreamUrl(itemId: string): string {
-  return `${getBaseUrl()}/Audio/${itemId}/stream?static=true&api_key=${getToken()}`;
+  const auth = readAuth();
+  return `${auth?.serverUrl || ""}/Audio/${itemId}/stream?static=true&api_key=${auth?.accessToken || ""}`;
 }
 
 export async function fetchAlbums(fields?: string, genreId?: string): Promise<MusicAlbum[]> {
+  const key = `${fields || ""}|${genreId || ""}`;
+  const cached = albumsCache.get(key);
+  if (cached) return cached;
   const params: Record<string, string> = {
     Recursive: "true",
     IncludeItemTypes: "MusicAlbum",
@@ -82,6 +100,7 @@ export async function fetchAlbums(fields?: string, genreId?: string): Promise<Mu
   if (fields) params.Fields = fields;
   if (genreId) params.GenreIds = genreId;
   const data = await api<ItemsResponse<MusicAlbum>>("/Users/{userId}/Items", params);
+  albumsCache.set(key, data.Items);
   return data.Items;
 }
 
@@ -141,11 +160,18 @@ export async function fetchFrequentAlbums(limit = 10): Promise<MusicAlbum[]> {
   return data.Items;
 }
 
-export async function fetchSinglesTracks(genreId?: string): Promise<Audio[]> {
-  const albums = await fetchAlbums("ChildCount", genreId);
+export async function fetchSinglesTracks(genreId?: string, preFetchedAlbums?: MusicAlbum[]): Promise<Audio[]> {
+  const albums = preFetchedAlbums || await fetchAlbums("ChildCount", genreId);
   const singles = albums.filter((a) => (a.ChildCount ?? 1) === 1);
-  const results = await Promise.all(singles.map((a) => fetchAlbumTracks(a.Id)));
-  return results.flat();
+  if (!singles.length) return [];
+  const batchSize = 15;
+  const results: Audio[] = [];
+  for (let i = 0; i < singles.length; i += batchSize) {
+    const batch = singles.slice(i, i + batchSize);
+    const tracks = await Promise.all(batch.map((a) => fetchAlbumTracks(a.Id)));
+    results.push(...tracks.flat());
+  }
+  return results;
 }
 
 export async function fetchGenres(): Promise<Genre[]> {
@@ -165,9 +191,7 @@ export async function searchAll(term: string, limit = 30): Promise<SearchHintRes
   });
 }
 
-let orphanCache: { albums: VirtualAlbum[]; version: number } | null = null;
-
-async function fetchAllItems<T>(path: string, params: Record<string, string>, pageSize = 200): Promise<T[]> {
+async function fetchAllItems<T>(path: string, params: Record<string, string>, pageSize = 1000): Promise<T[]> {
   const all: T[] = [];
   let startIndex = 0;
   while (true) {

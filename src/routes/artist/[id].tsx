@@ -1,4 +1,4 @@
-import { createResource, createMemo, createSignal, For } from "solid-js";
+import { createResource, createMemo, createSignal, createEffect, onMount, onCleanup, For, Show } from "solid-js";
 import { useParams, A } from "@solidjs/router";
 import { fetchArtistInfo, fetchArtistAlbums, fetchOrphanedTracks, fetchAlbumTracks, getImageUrl } from "~/lib/jellyfin";
 import type { VirtualAlbum, MusicAlbum, Audio } from "~/lib/types";
@@ -10,7 +10,8 @@ import AlbumCard from "~/components/AlbumCard";
 import TrackMenu from "~/components/TrackMenu";
 import TrackRowCard from "~/components/TrackRowCard";
 import { useIsMobile } from "~/lib/mobile";
-import { User, Music, ExternalLink, Play } from "lucide-solid";
+import { setHeaderTitle, setHeaderSubtitle, setHeaderImageUrl, setHeaderImageShape, setShowHeaderExtra } from "~/lib/mobileHeader";
+import { User, Music, ExternalLink, Play, AlertTriangle } from "lucide-solid";
 
 function formatDuration(ticks?: number): string {
   if (!ticks) return "0:00";
@@ -25,9 +26,37 @@ export default function ArtistPage() {
   const { state } = player;
   const isMobile = useIsMobile();
 
-  const [artist] = createResource(() => params.id, fetchArtistInfo);
-  const [realAlbums] = createResource(() => params.id, fetchArtistAlbums);
-  const [orphanAlbums] = createResource(() => authVersion(), (v) => fetchOrphanedTracks(v));
+  let sentinelRef: HTMLDivElement | undefined;
+
+  onMount(() => {
+    setHeaderTitle("");
+    setHeaderSubtitle("");
+    setHeaderImageUrl("");
+    setShowHeaderExtra(false);
+    if (!sentinelRef) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowHeaderExtra(!entry.isIntersecting),
+      { threshold: 0 }
+    );
+    observer.observe(sentinelRef);
+    onCleanup(() => {
+      observer.disconnect();
+      setShowHeaderExtra(false);
+    });
+  });
+
+  createEffect(() => {
+    const a = artist();
+    if (!a) return;
+    setHeaderTitle(a.Name);
+    setHeaderSubtitle(subtitle());
+    setHeaderImageUrl(imageSrc() || "");
+    setHeaderImageShape("circle");
+  });
+
+  const [artist, artistRes] = createResource(() => params.id, fetchArtistInfo);
+  const [realAlbums, realAlbumsRes] = createResource(() => params.id, fetchArtistAlbums);
+  const [orphanAlbums, orphanRes] = createResource(() => authVersion(), (v) => fetchOrphanedTracks(v));
 
   const artistOrphanAlbums = createMemo<VirtualAlbum[]>(() => {
     const all = orphanAlbums();
@@ -44,7 +73,7 @@ export default function ArtistPage() {
     (realAlbums() || []).filter((a) => (a.ChildCount ?? 1) === 1)
   );
 
-  const [realSingleTracks] = createResource(
+  const [realSingleTracks, realSingleRes] = createResource(
     () => realSingleAlbums().map((a) => a.Id).join(","),
     async () => {
       const ids = realSingleAlbums();
@@ -54,8 +83,10 @@ export default function ArtistPage() {
     }
   );
 
-  const [wikiData] = createResource(() => artist()?.Name, fetchArtistBio);
+  const [wikiData, wikiRes] = createResource(() => artist()?.Name, fetchArtistBio);
   const [showFullBio, setShowFullBio] = createSignal(false);
+
+  const hasError = () => artistRes.error || realAlbumsRes.error || orphanRes.error || realSingleRes.error;
 
   const virtualSingleTracks = createMemo<Audio[]>(() =>
     artistOrphanAlbums()
@@ -118,63 +149,103 @@ export default function ArtistPage() {
   }
 
   return (
-    <div class="pt-6 px-6 pb-2">
-      {artist() && (isMobile() ? (
-        <div class="-mx-6 -mt-[72px] mb-8 relative overflow-hidden" style="height: 100vw; max-height: 600px">
-          {imageSrc() ? (
-            <img src={imageSrc()} alt={artist()!.Name} class="absolute inset-0 w-full h-full object-cover" />
-          ) : (
-            <div class="absolute inset-0 w-full h-full flex items-center justify-center bg-[#1a1a1a] text-[#555]">
-              <User size={80} />
+    <div class="px-6 pb-2">
+      <Show when={artistRes.loading}>
+        {isMobile() ? (
+          <div class="-mx-6 -mt-[72px] mb-8 relative overflow-hidden" style="height: 120vw; max-height: 750px">
+            <div class="absolute inset-0 w-full h-full bg-[#1a1a1a] animate-pulse" />
+            <div class="absolute inset-0 bg-gradient-to-t from-[#121212] via-[#121212]/40 to-transparent" />
+            <div class="absolute bottom-0 left-0 right-0 p-6">
+              <div class="w-12 h-3 bg-[#2a2a2a] rounded animate-pulse mb-2" />
+              <div class="w-40 h-8 bg-[#2a2a2a] rounded animate-pulse mb-2" />
+              <div class="w-24 h-4 bg-[#2a2a2a] rounded animate-pulse" />
             </div>
-          )}
-          <div class="absolute inset-0 bg-gradient-to-t from-[#121212] via-[#121212]/40 to-transparent" />
-          <div class="absolute bottom-0 left-0 right-0 p-6 flex items-end justify-between">
+          </div>
+        ) : (
+          <div class="flex items-center gap-6 mb-8">
+            <div class="w-40 h-40 rounded-full bg-[#1a1a1a] animate-pulse flex-shrink-0" />
             <div class="flex-1">
+              <div class="w-16 h-3 bg-[#2a2a2a] rounded animate-pulse mb-2" />
+              <div class="w-48 h-8 bg-[#2a2a2a] rounded animate-pulse mb-2" />
+              <div class="w-32 h-4 bg-[#2a2a2a] rounded animate-pulse" />
+            </div>
+          </div>
+        )}
+      </Show>
+      <Show when={!artistRes.loading && artist()}>
+        {isMobile() ? (
+          <div class="-mx-6 -mt-[72px] mb-8 relative overflow-hidden" style="height: 120vw; max-height: 750px">
+            {imageSrc() ? (
+              <img src={imageSrc()} alt={artist()!.Name} class="absolute inset-0 w-full h-full object-cover object-top" />
+            ) : (
+              <div class="absolute inset-0 w-full h-full flex items-center justify-center bg-[#1a1a1a] text-[#555]">
+                <User size={80} />
+              </div>
+            )}
+            <div class="absolute inset-0 bg-gradient-to-t from-[#121212] via-[#121212]/40 to-transparent" />
+            <div class="absolute bottom-0 left-0 right-0 p-6 flex items-end justify-between">
+              <div class="flex-1">
+                <p class="text-xs text-[#888] uppercase tracking-wider mb-1">Artist</p>
+                <h1 class="text-3xl font-bold text-white">{artist()!.Name}</h1>
+                {subtitle() && (
+                  <p class="text-sm text-[#888] mt-1">{subtitle()}</p>
+                )}
+              </div>
+              {allSingles().length > 0 && (
+                <button
+                  onClick={playDiscography}
+                  class="w-12 h-12 rounded-full bg-[#1db954] text-black flex items-center justify-center hover:scale-105 transition-transform shrink-0 cursor-pointer"
+                >
+                  <Play size={24} fill="currentColor" />
+                </button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div class="flex items-center gap-6 mb-8">
+            <div class="w-40 h-40 rounded-full overflow-hidden bg-[#1a1a1a] flex-shrink-0">
+              {imageSrc() ? (
+                <img
+                  src={imageSrc()}
+                  alt={artist()!.Name}
+                  class="w-full h-full object-cover"
+                />
+              ) : (
+                <div class="w-full h-full flex items-center justify-center text-[#555]">
+                  <User size={48} />
+                </div>
+              )}
+            </div>
+            <div>
               <p class="text-xs text-[#888] uppercase tracking-wider mb-1">Artist</p>
               <h1 class="text-3xl font-bold text-white">{artist()!.Name}</h1>
               {subtitle() && (
                 <p class="text-sm text-[#888] mt-1">{subtitle()}</p>
               )}
             </div>
-            {allSingles().length > 0 && (
-              <button
-                onClick={playDiscography}
-                class="w-12 h-12 rounded-full bg-[#1db954] text-black flex items-center justify-center hover:scale-105 transition-transform shrink-0 cursor-pointer"
-              >
-                <Play size={24} fill="currentColor" />
-              </button>
-            )}
           </div>
-        </div>
-      ) : (
-        <div class="flex items-center gap-6 mb-8">
-          <div class="w-40 h-40 rounded-full overflow-hidden bg-[#1a1a1a] flex-shrink-0">
-            {imageSrc() ? (
-              <img
-                src={imageSrc()}
-                alt={artist()!.Name}
-                class="w-full h-full object-cover"
-              />
-            ) : (
-              <div class="w-full h-full flex items-center justify-center text-[#555]">
-                <User size={48} />
-              </div>
-            )}
-          </div>
-          <div>
-            <p class="text-xs text-[#888] uppercase tracking-wider mb-1">Artist</p>
-            <h1 class="text-3xl font-bold text-white">{artist()!.Name}</h1>
-            {subtitle() && (
-              <p class="text-sm text-[#888] mt-1">{subtitle()}</p>
-            )}
-          </div>
-        </div>
-      ))}
+        )}
+      </Show>
 
-      {hasAlbums() && (
-        <section class="mb-8">
-          <h2 class="text-lg font-semibold text-white mb-4">Albums</h2>
+      <div ref={sentinelRef} class="h-px" />
+
+      <Show when={hasError()}>
+        <div class="flex items-center gap-2 mb-4 px-3 py-2 bg-red-900/20 border border-red-900/30 rounded-lg text-xs text-red-400">
+          <AlertTriangle size={14} />
+          <span>Failed to load artist data. Check your connection and server settings.</span>
+        </div>
+      </Show>
+
+      <section class="mb-8">
+        <h2 class="text-lg font-semibold text-white mb-4">Albums</h2>
+        <Show when={realAlbumsRes.loading}>
+          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+            <For each={[0,0,0,0,0,0]}>
+              {() => <div class="animate-pulse bg-[#2a2a2a] rounded-lg" style="aspect-ratio: 1" />}
+            </For>
+          </div>
+        </Show>
+        <Show when={!realAlbumsRes.loading && hasAlbums()}>
           <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             <For each={artistAlbumGrid()}>
               {(item) => item.kind === "real" ? (
@@ -198,18 +269,37 @@ export default function ArtistPage() {
               )}
             </For>
           </div>
-        </section>
-      )}
+        </Show>
+      </section>
 
-      {hasSingles() && (() => {
+      {(() => {
+        const all = allSingles();
+        const trackIndexMap = new Map<string, number>();
+        all.forEach((t, i) => trackIndexMap.set(t.Id, i));
+        const isLoading = realSingleRes.loading || orphanRes.loading;
         return (
-        <section>
+        <Show when={isLoading || hasSingles()}>
+        <section class="mb-8">
           <h2 class="text-lg font-semibold text-white mb-4">Singles</h2>
+          <Show when={isLoading}>
+            <div class="space-y-2">
+              <For each={[0,0,0,0,0,0]}>
+                {() => (
+                  <div class="flex items-center gap-3 h-14 bg-[#1a1a1a] rounded animate-pulse px-2">
+                    <div class="w-4 h-3 bg-[#2a2a2a] rounded" />
+                    <div class="w-8 h-8 rounded-md bg-[#2a2a2a]" />
+                    <div class="flex-1 h-3 bg-[#2a2a2a] rounded max-w-[200px]" />
+                    <div class="w-16 h-3 bg-[#2a2a2a] rounded" />
+                  </div>
+                )}
+              </For>
+            </div>
+          </Show>
+          <Show when={!isLoading && hasSingles()}>
           {isMobile() ? (
             <div class="space-y-1">
               {singleScroll.visible().map((track) => {
-                const all = allSingles();
-                const globalIndex = all.indexOf(track);
+                const globalIndex = trackIndexMap.get(track.Id) ?? 0;
                 const isActive = state.isPlaying && state.queue[state.queueIndex]?.Id === track.Id;
                 return (
                   <TrackRowCard
@@ -235,8 +325,7 @@ export default function ArtistPage() {
             </thead>
             <tbody>
               {singleScroll.visible().map((track) => {
-                const all = allSingles();
-                const globalIndex = all.indexOf(track);
+                const globalIndex = trackIndexMap.get(track.Id) ?? 0;
                 const isActive = state.isPlaying && state.queue[state.queueIndex]?.Id === track.Id;
                 const coverUrl = track.AlbumId || track.Id;
                 const hasCover = track.AlbumPrimaryImageTag || track.ImageTags?.Primary;
@@ -288,8 +377,10 @@ export default function ArtistPage() {
             </tbody>
           </table>
           )}
+          </Show>
           {singleScroll.hasMore() && <div ref={singleScroll.sentinelRef} class="h-4" />}
         </section>
+        </Show>
         );
       })()}
 
@@ -346,7 +437,7 @@ export default function ArtistPage() {
         </section>
       )}
 
-      {!hasAlbums() && !hasSingles() && (
+      {!realAlbumsRes.loading && !realSingleRes.loading && !orphanRes.loading && !artistRes.loading && !hasAlbums() && !hasSingles() && (
         <p class="text-[#888] text-sm mt-8 text-center mb-8">No albums found for this artist</p>
       )}
     </div>

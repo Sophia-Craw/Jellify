@@ -1,8 +1,9 @@
 import { createSignal, createEffect, Show, onCleanup } from "solid-js";
 import { A } from "@solidjs/router";
 import { usePlayer } from "~/stores/player";
-import { getImageUrl } from "~/lib/jellyfin";
+import { getImageUrl, makeSlug } from "~/lib/jellyfin";
 import MarqueeText from "./MarqueeText";
+import { playerExpanded, setPlayerExpanded } from "~/lib/mobileHeader";
 import {
   Music, ChevronDown, MoreHorizontal, Shuffle, SkipBack,
   Play, Pause, SkipForward, Repeat, Repeat1, ListMusic, Plus, Volume2
@@ -13,7 +14,6 @@ import TrackBottomSheet from "./TrackBottomSheet";
 export default function MobilePlayer() {
   const player = usePlayer();
   const { state, currentTrack } = player;
-  const [expanded, setExpanded] = createSignal(false);
   const [dragY, setDragY] = createSignal(0);
   const [isDragging, setIsDragging] = createSignal(false);
   const [showTrackOptions, setShowTrackOptions] = createSignal(false);
@@ -47,21 +47,6 @@ export default function MobilePlayer() {
     startY = e.touches[0].clientY;
     startX = e.touches[0].clientX;
     setIsDragging(true);
-  }
-
-  function handleTouchMove(e: TouchEvent) {
-    if (!isDragging()) return;
-    const diff = e.touches[0].clientY - startY;
-    if (diff < 0) return;
-    setDragY(diff);
-  }
-
-  function handleTouchEnd() {
-    setIsDragging(false);
-    if (dragY() > 120) {
-      setExpanded(false);
-    }
-    setDragY(0);
   }
 
   function handleCoverTouchStart(e: TouchEvent) {
@@ -111,7 +96,7 @@ export default function MobilePlayer() {
   function handleTouchEnd() {
     setIsDragging(false);
     if (dragY() > 120) {
-      setExpanded(false);
+      setPlayerExpanded(false);
     }
     setDragY(0);
   }
@@ -136,7 +121,7 @@ export default function MobilePlayer() {
   }
 
   const translateY = () => {
-    if (expanded()) {
+    if (playerExpanded()) {
       return isDragging() ? dragY() : 0;
     }
     return "100%";
@@ -147,9 +132,9 @@ export default function MobilePlayer() {
   return (
     <>
       {/* Mini player chip */}
-      {track() && !expanded() && (
+      {track() && !playerExpanded() && (
         <div
-          onClick={() => setExpanded(true)}
+          onClick={() => setPlayerExpanded(true)}
           class="mx-3 mb-1 rounded-xl bg-[#1a1a1a] border border-[#2a2a2a] overflow-hidden cursor-pointer active:scale-[0.98] transition-transform"
         >
           <div class="h-0.5 bg-[#2a2a2a] relative">
@@ -171,7 +156,7 @@ export default function MobilePlayer() {
               </div>
             )}
             <div class="flex-1 min-w-0">
-              <MarqueeText>
+              <MarqueeText key={track()?.Id}>
                 <p class="text-sm text-white">{track()?.Name || "No track playing"}</p>
               </MarqueeText>
               <p class="text-xs text-[#888] truncate">{track()?.Artists?.join(", ") || track()?.AlbumArtist || ""}</p>
@@ -190,8 +175,8 @@ export default function MobilePlayer() {
       {track() && (
         <div
           ref={fullPlayerRef}
-          class={`fixed inset-0 z-[90] bg-[#121212] flex flex-col ${transitionClass()}`}
-          style={{ transform: `translateY(${translateY()})` }}
+          class={`fixed left-0 right-0 bottom-0 z-[90] bg-[#121212] flex flex-col ${transitionClass()}`}
+          style={{ transform: `translateY(${translateY()})`, top: "calc(env(safe-area-inset-top, var(--safe-area-inset-top, 0px)) + 3rem)" }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
@@ -199,7 +184,7 @@ export default function MobilePlayer() {
           {/* Header */}
           <div class="flex items-center justify-between px-4 pt-2 pb-1 shrink-0">
             <button
-              onClick={() => setExpanded(false)}
+              onClick={() => setPlayerExpanded(false)}
               class="w-9 h-9 flex items-center justify-center text-[#888] hover:text-white transition-colors cursor-pointer"
             >
               <ChevronDown size={24} />
@@ -244,10 +229,10 @@ export default function MobilePlayer() {
 
             {/* Track info */}
             <div class="w-full max-w-[350px] mt-4">
-              <MarqueeText class="w-full">
+              <MarqueeText class="w-full" key={track()?.Id}>
                 <A
-                  href={`/album/${track()?.AlbumId || ""}`}
-                  onClick={() => setExpanded(false)}
+                  href={track()?.AlbumId ? `/album/${track()!.AlbumId}` : `/virtual-album/${makeSlug(track()?.Album || "Unknown Album")}`}
+                  onClick={() => setPlayerExpanded(false)}
                   class="text-2xl font-semibold text-white hover:underline"
                 >
                   {track()?.Name}
@@ -255,7 +240,7 @@ export default function MobilePlayer() {
               </MarqueeText>
               <A
                 href={`/artist/${track()?.AlbumArtists?.[0]?.Id || ""}`}
-                onClick={() => setExpanded(false)}
+                onClick={() => setPlayerExpanded(false)}
                 class="text-sm text-[#888] hover:text-white hover:underline truncate block"
               >
                 {track()?.Artists?.join(", ") || track()?.AlbumArtist || ""}

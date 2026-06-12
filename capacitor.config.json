@@ -1,0 +1,15 @@
+{
+  "appId": "com.jellify.app",
+  "appName": "Jellify",
+  "webDir": ".output/public",
+  "bundledWebRuntime": false,
+  "server": {
+    "cleartext": true
+  },
+  "plugins": {
+    "SystemBars": {
+      "style": "DARK",
+      "insetsHandling": "css"
+    }
+  }
+}

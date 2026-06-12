@@ -120,13 +120,14 @@ input[type="range"]::-moz-range-thumb {
   height: env(safe-area-inset-bottom, 0px);
 }
 
-@keyframes marquee {
-  0%, 15% { transform: translateX(0); }
-  85%, 100% { transform: translateX(-100%); }
+@keyframes teeter {
+  0%, 10% { transform: translateX(0); }
+  45%, 55% { transform: translateX(var(--scroll-dist, -100%)); }
+  90%, 100% { transform: translateX(0); }
 }
 
-.animate-marquee {
-  animation: marquee 10s ease-in-out infinite;
+.animate-teeter {
+  animation: teeter 12s ease-in-out infinite;
 }
 
 @keyframes page-enter-forward {

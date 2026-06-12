@@ -1,79 +1,96 @@
 import { createResource, createMemo, createSignal, createEffect, onMount, onCleanup } from "solid-js";
-import { useParams, useNavigate } from "@solidjs/router";
+import { useParams } from "@solidjs/router";
 import { usePlaylists } from "~/stores/playlists";
 import { fetchAlbumInfo, getImageUrl } from "~/lib/jellyfin";
 import { useIsMobile } from "~/lib/mobile";
-import { Music, ArrowLeft, Play, ArrowUpDown, GripVertical } from "lucide-solid";
+import { Music, Play, ArrowUpDown, GripVertical, Pencil } from "lucide-solid";
 import { usePlayer } from "~/stores/player";
 import type { Audio } from "~/lib/types";
 import Sortable from "sortablejs";
 import TrackMenu from "~/components/TrackMenu";
 import TrackRowCard from "~/components/TrackRowCard";
+import PlaylistEditDialog from "~/components/PlaylistEditDialog";
+import { setHeaderTitle, setHeaderSubtitle, setHeaderImageUrl, setShowHeaderExtra } from "~/lib/mobileHeader";
 
 export default function PlaylistPage() {
   const params = useParams();
-  const navigate = useNavigate();
   const { playlists, reorderPlaylistTracks } = usePlaylists();
   const player = usePlayer();
   const isMobile = useIsMobile();
   const [hydrated, setHydrated] = createSignal(false);
   const [reorderMode, setReorderMode] = createSignal(false);
-  const [showSticky, setShowSticky] = createSignal(false);
+  const [showEdit, setShowEdit] = createSignal(false);
+  let pendingOrder: string[] | null = null;
   let sentinelRef: HTMLDivElement | undefined;
   let sortableContainer: HTMLTableSectionElement | undefined;
+  let mobileSortableContainer: HTMLDivElement | undefined;
   let sortableInstance: Sortable | undefined;
 
-  onMount(() => {
-    if (!sentinelRef) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setShowSticky(!entry.isIntersecting),
-      { threshold: 0 }
-    );
-    observer.observe(sentinelRef);
-    onCleanup(() => observer.disconnect());
-  });
-  
   // Cache for track data to avoid refetching on reorder
   const trackCache = new Map<string, Audio>();
   
   onMount(() => setHydrated(true));
+
+  onMount(() => {
+    setHeaderTitle("");
+    setHeaderSubtitle("");
+    setHeaderImageUrl("");
+    setShowHeaderExtra(false);
+    if (!sentinelRef) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowHeaderExtra(!entry.isIntersecting),
+      { threshold: 0 }
+    );
+    observer.observe(sentinelRef);
+    onCleanup(() => {
+      observer.disconnect();
+      setShowHeaderExtra(false);
+    });
+  });
+
+  createEffect(() => {
+    const pl = playlist();
+    if (!pl || !hydrated()) return;
+    setHeaderTitle(pl.name);
+    setHeaderSubtitle("Playlist");
+    setHeaderImageUrl(pl.coverDataUrl || "");
+  });
   const playlist = () => playlists.find((p) => p.id === params.id);
 
   function createSortableInstance() {
-    if (!reorderMode() || !sortableContainer || typeof document === "undefined") return;
+    if (typeof document === "undefined") return;
+    const container = isMobile() ? mobileSortableContainer : sortableContainer;
+    if (!reorderMode() || !container) return;
     
-    sortableInstance = new Sortable(sortableContainer, {
+    sortableInstance = new Sortable(container, {
       handle: ".drag-handle",
       animation: 200,
       easing: "cubic-bezier(0.25, 0.46, 0.45, 0.94)",
       onStart: (evt) => {
-        if (!sortableContainer) return;
-        const els = sortableContainer.querySelectorAll<HTMLElement>("[data-track-id]");
+        const els = container.querySelectorAll<HTMLElement>("[data-track-id]");
         const originalOrder = Array.from(els).map(el => el.dataset.trackId!);
-        sortableContainer.dataset.originalOrder = JSON.stringify(originalOrder);
+        container.dataset.originalOrder = JSON.stringify(originalOrder);
       },
       onEnd: (evt) => {
-        if (!sortableContainer) return;
-        
-        const originalOrder: string[] = JSON.parse(sortableContainer.dataset.originalOrder || "[]");
-        const els = sortableContainer.querySelectorAll<HTMLElement>("[data-track-id]");
+        const originalOrder: string[] = JSON.parse(container.dataset.originalOrder || "[]");
+        const els = container.querySelectorAll<HTMLElement>("[data-track-id]");
         const newOrder = Array.from(els).map(el => el.dataset.trackId!);
         
         // Revert DOM back to original order
         originalOrder.forEach(id => {
-          const el = sortableContainer!.querySelector(`[data-track-id="${id}"]`);
-          if (el) sortableContainer!.appendChild(el);
+          const el = container.querySelector(`[data-track-id="${id}"]`);
+          if (el) container.appendChild(el);
         });
         
-        // Destroy Sortable before updating store
+        // Destroy Sortable before any store updates
         sortableInstance?.destroy();
         sortableInstance = undefined;
         
-        // Update store
-        reorderPlaylistTracks(params.id, newOrder);
+        // Store new order locally — defer store sync until reorder mode exits
+        pendingOrder = newOrder;
         
-        // Recreate Sortable after store update
-        setTimeout(() => createSortableInstance(), 0);
+        // Recreate Sortable after a tick
+        setTimeout(() => createSortableInstance(), 100);
       },
     });
   }
@@ -84,6 +101,11 @@ export default function PlaylistPage() {
     } else {
       sortableInstance?.destroy();
       sortableInstance = undefined;
+      // Sync pending reorder to store when exiting reorder mode
+      if (pendingOrder) {
+        reorderPlaylistTracks(params.id, pendingOrder);
+        pendingOrder = null;
+      }
     }
   });
 
@@ -138,7 +160,7 @@ export default function PlaylistPage() {
   const p = playlist;
 
   return (
-    <div class="pt-6 px-6 pb-2">
+    <><div class="pt-32 px-6 pb-2">
       {!hydrated() ? (
         <div class="animate-pulse space-y-4">
           <div class="w-24 h-4 bg-[#2a2a2a] rounded" />
@@ -153,51 +175,7 @@ export default function PlaylistPage() {
         </div>
       ) : p() ? (
         <>
-          <button
-            onClick={() => navigate(-1)}
-            class="flex items-center gap-1 text-sm text-[#888] hover:text-white transition-colors mb-4 cursor-pointer"
-          >
-            <ArrowLeft size={16} />
-            Back
-          </button>
-
-          <div
-            class="sticky top-0 z-30 -mx-6 px-4 bg-[#121212]/95 backdrop-blur border-b border-[#2a2a2a] transition-all duration-300 ease-out"
-            classList={{
-              "opacity-0": !showSticky() || !isMobile(),
-              "opacity-100": showSticky() && isMobile(),
-            }}
-            style={{
-              transform: showSticky() && isMobile() ? 'translateY(0)' : 'translateY(-100%)',
-            }}
-          >
-            <div class="flex items-center gap-3 h-12">
-              <div
-                class="w-8 h-8 rounded overflow-hidden flex-shrink-0 flex items-center justify-center"
-                style={{ "background-color": p()?.color }}
-              >
-                {p()!.coverDataUrl ? (
-                  <img src={p()!.coverDataUrl} alt={p()!.name} class="w-full h-full object-cover" />
-                ) : (
-                  <Music size={14} class="text-white/60" />
-                )}
-              </div>
-              <div class="flex-1 min-w-0">
-                <p class="text-sm font-medium text-white truncate">{p()!.name}</p>
-                <p class="text-xs text-[#888] truncate">Playlist</p>
-              </div>
-            </div>
-          </div>
-
-          <div
-            class="flex flex-col sm:flex-row gap-6 mb-8 items-center sm:items-start text-center sm:text-left transition-all duration-300 ease-out origin-top"
-            style={{
-              transform: showSticky() && isMobile()
-                ? 'scale(0.85) translateY(-20px)'
-                : 'scale(1) translateY(0)',
-              opacity: showSticky() && isMobile() ? 0 : 1,
-            }}
-          >
+          <div class="flex flex-col sm:flex-row gap-6 mb-8 items-center sm:items-start text-center sm:text-left">
             <div
               class="w-48 h-48 rounded-lg shadow-lg flex items-center justify-center flex-shrink-0 overflow-hidden"
               style={{ "background-color": p()!.color }}
@@ -219,6 +197,13 @@ export default function PlaylistPage() {
 
               {tracks() && tracks()!.length > 0 && (
                 <div class="flex items-center justify-center sm:justify-start gap-3 mt-4">
+                  <button
+                    onClick={() => setShowEdit(true)}
+                    class="p-2 rounded-full bg-[#2a2a2a] text-[#888] hover:text-white hover:bg-[#333] transition-colors cursor-pointer"
+                    title="Edit playlist"
+                  >
+                    <Pencil size={18} />
+                  </button>
                   <button
                     onClick={() => player.play(tracks()![0], tracks()!, 0)}
                     class="w-10 h-10 rounded-full bg-[#1db954] text-black flex items-center justify-center hover:scale-105 transition-transform cursor-pointer"
@@ -245,20 +230,57 @@ export default function PlaylistPage() {
           <div ref={sentinelRef} class="h-px" />
 
           {tracks() && tracks()!.length > 0 ? isMobile() ? (
-            <div class="space-y-1">
-              {tracks()!.map((track, index) => {
-                const isActive = player.state.isPlaying && currentTrackId() === track.Id;
-                return (
-                  <TrackRowCard
-                    track={track}
-                    index={index}
-                    isActive={isActive}
-                    onClick={() => player.play(track, tracks()!, index)}
-                    playlistId={params.id}
-                  />
-                );
-              })}
-            </div>
+            reorderMode() ? (
+              <div ref={(el) => { mobileSortableContainer = el; }} class="space-y-1">
+                {tracks()!.map((track, index) => {
+                  const isActive = player.state.isPlaying && currentTrackId() === track.Id;
+                  return (
+                      <button
+                        type="button"
+                        data-track-id={track.Id}
+                        class="flex items-center gap-2 px-2 py-2 rounded-lg transition-colors w-full text-left cursor-pointer"
+                        classList={{
+                          "bg-[#1db954]/10": isActive,
+                          "hover:bg-[#1a1a1a]": !isActive,
+                        }}
+                      >
+                        <span class="drag-handle text-[#555] cursor-grab active:cursor-grabbing select-none touch-none px-1">
+                          <GripVertical size={18} />
+                        </span>
+                        <div class="w-9 h-9 rounded-md bg-[#333] overflow-hidden flex items-center justify-center flex-shrink-0">
+                          {(track.AlbumPrimaryImageTag || track.ImageTags?.Primary) ? (
+                            <img src={getImageUrl(track.AlbumId || track.Id, "Primary", 60)} alt="" class="w-full h-full object-cover" />
+                          ) : (
+                            <Music size={14} class="text-[#555]" />
+                          )}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                          <p class="text-sm font-medium truncate" classList={{ "text-[#1db954]": isActive, "text-white": !isActive }}>
+                            {track.Name}
+                          </p>
+                          <p class="text-xs text-[#888] truncate">{track.Artists?.join(", ") || track.AlbumArtist || ""}</p>
+                        </div>
+                        <span class="text-xs text-[#555] tabular-nums">{formatTicks(track.RunTimeTicks)}</span>
+                      </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div class="space-y-1">
+                {tracks()!.map((track, index) => {
+                  const isActive = player.state.isPlaying && currentTrackId() === track.Id;
+                  return (
+                    <TrackRowCard
+                      track={track}
+                      index={index}
+                      isActive={isActive}
+                      onClick={() => player.play(track, tracks()!, index)}
+                      playlistId={params.id}
+                    />
+                  );
+                })}
+              </div>
+            )
           ) : (
             <table class="w-full text-sm">
               <thead>
@@ -316,5 +338,9 @@ export default function PlaylistPage() {
         <p class="text-[#888] text-sm mt-8 text-center">Playlist not found</p>
       )}
     </div>
-  );
+
+    {showEdit() && p() && (
+      <PlaylistEditDialog playlistId={p()!.id} onClose={() => setShowEdit(false)} mobile={isMobile()} />
+    )}
+  </>);
 }

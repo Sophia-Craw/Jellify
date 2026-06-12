@@ -1,16 +1,24 @@
-import { createSignal, onMount } from "solid-js";
+import { createSignal, createEffect } from "solid-js";
 
 export default function MarqueeText(props: {
   children: any;
   class?: string;
+  key?: string;
 }) {
   let containerRef: HTMLDivElement | undefined;
   let contentRef: HTMLDivElement | undefined;
-  const [overflowing, setOverflowing] = createSignal(false);
+  const [overflow, setOverflow] = createSignal({ active: false, dist: "0px" });
 
-  onMount(() => {
+  createEffect(() => {
+    const _ = props.key;
     if (containerRef && contentRef) {
-      setOverflowing(contentRef.scrollWidth > containerRef.clientWidth);
+      const ow = contentRef.scrollWidth > containerRef.clientWidth;
+      if (ow) {
+        const dist = -(contentRef.scrollWidth - containerRef.clientWidth);
+        setOverflow({ active: true, dist: `${dist}px` });
+      } else {
+        setOverflow({ active: false, dist: "0px" });
+      }
     }
   });
 
@@ -18,7 +26,8 @@ export default function MarqueeText(props: {
     <div ref={containerRef} class={`overflow-hidden ${props.class || ""}`}>
       <div
         ref={contentRef}
-        class={`whitespace-nowrap ${overflowing() ? "inline-block animate-marquee" : ""}`}
+        class={`whitespace-nowrap ${overflow().active ? "inline-block animate-teeter" : ""}`}
+        style={{ "--scroll-dist": overflow().dist } as any}
       >
         {props.children}
       </div>

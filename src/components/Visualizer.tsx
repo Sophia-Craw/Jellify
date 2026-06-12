@@ -1,4 +1,4 @@
-import { onMount, onCleanup } from "solid-js";
+import { onMount, onCleanup, createEffect } from "solid-js";
 import { usePlayer } from "~/stores/player";
 
 let audioCtx: AudioContext | null = null;
@@ -63,13 +63,13 @@ function getSpectrumColor(pos: number): string {
 export default function Visualizer() {
   const { state, getAudioElement } = usePlayer();
   let canvasRef: HTMLCanvasElement | undefined;
+  let frameId: number | undefined;
 
   onMount(() => {
     const canvas = canvasRef;
     if (!canvas) return;
     const el = getAudioElement();
     if (!el) return;
-
     if (typeof window === "undefined") return;
 
     if (!audioCtx) {
@@ -104,10 +104,10 @@ export default function Visualizer() {
 
     const data = new Uint8Array(analyser?.frequencyBinCount ?? 128);
     let time = 0;
-    let frameId: number;
+    let animating = false;
 
     function draw() {
-      frameId = requestAnimationFrame(draw);
+      if (!animating) return;
       analyser?.getByteFrequencyData(data);
       if (gainNode && gainNode.gain.value !== state.volume) {
         gainNode.gain.value = state.volume;
@@ -176,12 +176,28 @@ export default function Visualizer() {
         ctx!.fillStyle = hexToRgba(gradColor, 0.25 + energy * 0.6);
         ctx!.fillRect(barX, specY + spectrumH - barH, Math.max(1, barW - 1), barH);
       }
+
+      frameId = requestAnimationFrame(draw);
     }
 
-    draw();
+    createEffect(() => {
+      if (state.isPlaying) {
+        if (!animating) {
+          animating = true;
+          draw();
+        }
+      } else {
+        animating = false;
+        if (frameId !== undefined) {
+          cancelAnimationFrame(frameId);
+          frameId = undefined;
+        }
+      }
+    });
 
     onCleanup(() => {
-      cancelAnimationFrame(frameId);
+      animating = false;
+      if (frameId !== undefined) cancelAnimationFrame(frameId);
       window.removeEventListener("resize", resize);
     });
   });

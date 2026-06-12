@@ -1,4 +1,4 @@
-import { createResource, createMemo, createSignal, For, onMount, onCleanup } from "solid-js";
+import { createResource, createMemo, createSignal, For, Show, onMount, onCleanup } from "solid-js";
 import { useSearchParams, A } from "@solidjs/router";
 import { fetchAlbums, fetchArtists, fetchGenres, fetchSinglesTracks, fetchOrphanedTracks, getImageUrl } from "~/lib/jellyfin";
 import type { AlbumTab, Genre, Audio, MusicAlbum, VirtualAlbum } from "~/lib/types";
@@ -11,7 +11,8 @@ import { usePlaylists } from "~/stores/playlists";
 import { useAuth } from "~/stores/auth";
 import { useInfiniteScroll } from "~/lib/useInfiniteScroll";
 import { useIsMobile } from "~/lib/mobile";
-import { Music } from "lucide-solid";
+import { setHeaderTitle, setHeaderSubtitle, setHeaderImageUrl, setShowHeaderExtra } from "~/lib/mobileHeader";
+import { Music, AlertTriangle } from "lucide-solid";
 
 const TABS: { key: AlbumTab; label: string }[] = [
   { key: "playlists", label: "Playlists" },
@@ -39,7 +40,9 @@ export default function Library() {
     (searchParams.tab as AlbumTab) || "playlists"
   );
   const { authVersion } = useAuth();
-  const [genres] = createResource(() => authVersion(), () => fetchGenres());
+  const isMobile = useIsMobile();
+
+  const [genres, genresRes] = createResource(() => authVersion(), () => fetchGenres());
   const selectedGenre = createMemo(() => searchParams.genre || "");
   const selectedGenreId = createMemo(() => {
     const name = selectedGenre();
@@ -47,24 +50,34 @@ export default function Library() {
     const g = genres();
     return g?.find((g) => g.Name === name)?.Id || "";
   });
-  const [albums] = createResource(() => ({ v: authVersion(), genre: selectedGenreId() }), (s) => fetchAlbums("ChildCount", s.genre || undefined));
-  const [artists] = createResource(() => ({ v: authVersion(), genre: selectedGenreId() }), (s) => fetchArtists(s.genre || undefined));
-  const isMobile = useIsMobile();
-  const [showSticky, setShowSticky] = createSignal(false);
+  const [albums, albumsRes] = createResource(() => ({ v: authVersion(), genre: selectedGenreId() }), (s) => fetchAlbums("ChildCount", s.genre || undefined), { initialValue: [] });
+  const [artists, artistsRes] = createResource(() => ({ v: authVersion(), genre: selectedGenreId() }), (s) => fetchArtists(s.genre || undefined), { initialValue: [] });
+  const [singlesTracks, singlesRes] = createResource(() => ({ v: authVersion(), genre: selectedGenreId() }), async (s) => fetchSinglesTracks(s.genre || undefined, albums()), { initialValue: [] });
+  const [virtualAlbums, virtualRes] = createResource(() => authVersion(), (v) => fetchOrphanedTracks(v), { initialValue: [] });
+
+  onMount(() => {
+    setHeaderTitle("Library");
+    setHeaderSubtitle("");
+    setHeaderImageUrl("");
+    setShowHeaderExtra(false);
+  });
+
   let sentinelRef: HTMLDivElement | undefined;
 
   onMount(() => {
     if (!sentinelRef) return;
     const observer = new IntersectionObserver(
-      ([entry]) => setShowSticky(!entry.isIntersecting),
+      ([entry]) => setShowHeaderExtra(!entry.isIntersecting),
       { threshold: 0 }
     );
     observer.observe(sentinelRef);
-    onCleanup(() => observer.disconnect());
+    onCleanup(() => {
+      observer.disconnect();
+      setShowHeaderExtra(false);
+    });
   });
 
-  const [singlesTracks] = createResource(() => ({ v: authVersion(), genre: selectedGenreId() }), (s) => fetchSinglesTracks(s.genre || undefined));
-  const [virtualAlbums] = createResource(() => authVersion(), () => fetchOrphanedTracks());
+  const hasError = () => genresRes.error || albumsRes.error || artistsRes.error || singlesRes.error || virtualRes.error;
 
   const filteredAlbums = createMemo(() => {
     const all = albums();
@@ -136,15 +149,8 @@ export default function Library() {
   }
 
   return (
-    <div class="pt-6 px-6 pb-2">
-      <div
-        class="sticky top-0 z-30 transition-all duration-200 -mx-6 px-6 mb-6"
-        classList={{
-          "bg-[#121212]/95 backdrop-blur border-b border-[#2a2a2a]": showSticky() && isMobile(),
-        }}
-      >
-        <h1 class="text-2xl font-bold text-white py-3">Library</h1>
-      </div>
+    <div class="pt-32 px-6 pb-2">
+      <h1 class="text-2xl font-bold text-white mb-6">Library</h1>
       <div ref={sentinelRef} class="h-px" />
 
       <div class="flex gap-1 mb-4 bg-[#1a1a1a] rounded-lg p-1 w-fit">
@@ -165,20 +171,27 @@ export default function Library() {
       {activeTab() !== "playlists" && (
       <div class="mb-6 overflow-x-auto scrollbar-thin">
         <div class="flex gap-2 pb-2 min-w-max">
-          <For each={genres()}>
-            {(genre) => (
-              <button
-                onClick={() => toggleGenre(genre.Name)}
-                class={`px-3 py-1 text-xs rounded-full whitespace-nowrap transition-colors cursor-pointer ${
-                  selectedGenre() === genre.Name
-                    ? "bg-[#333] text-white font-medium"
-                    : "bg-[#121212] text-[#888] hover:text-white hover:bg-[#1a1a1a]"
-                }`}
-              >
-                {genre.Name}
-              </button>
-            )}
-          </For>
+          <Show when={genresRes.loading}>
+            <For each={[0,0,0,0,0,0,0,0]}>
+              {() => <div class="w-16 h-6 bg-[#2a2a2a] rounded-full animate-pulse" />}
+            </For>
+          </Show>
+          <Show when={!genresRes.loading}>
+            <For each={genres()}>
+              {(genre) => (
+                <button
+                  onClick={() => toggleGenre(genre.Name)}
+                  class={`px-3 py-1 text-xs rounded-full whitespace-nowrap transition-colors cursor-pointer ${
+                    selectedGenre() === genre.Name
+                      ? "bg-[#333] text-white font-medium"
+                      : "bg-[#121212] text-[#888] hover:text-white hover:bg-[#1a1a1a]"
+                  }`}
+                >
+                  {genre.Name}
+                </button>
+              )}
+            </For>
+          </Show>
         </div>
       </div>)}
 
@@ -194,11 +207,26 @@ export default function Library() {
         </p>
       )}
 
+      <Show when={hasError()}>
+        <div class="flex items-center gap-2 mb-4 px-3 py-2 bg-red-900/20 border border-red-900/30 rounded-lg text-xs text-red-400">
+          <AlertTriangle size={14} />
+          <span>Failed to load some data. Check your connection and server settings.</span>
+        </div>
+      </Show>
+
       {activeTab() === "artists" && (() => {
         const items = artistScroll.visible();
         return (
           <div>
-            {items.length > 0 ? (
+            <Show when={artistsRes.loading}>
+              <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                <For each={[0,0,0,0,0,0,0,0,0,0,0,0]}>
+                  {() => <div class="animate-pulse bg-[#2a2a2a] rounded-lg" style="aspect-ratio: 1" />}
+                </For>
+              </div>
+            </Show>
+            <Show when={!artistsRes.loading}>
+              {items.length > 0 ? (
               <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                 {items.map((artist) => (
                   <ArtistCard artist={artist} />
@@ -207,6 +235,7 @@ export default function Library() {
             ) : (
               <p class="text-[#888] text-sm mt-8 text-center">No artists found</p>
             )}
+            </Show>
             {artistScroll.hasMore() && <div ref={artistScroll.sentinelRef} class="h-4" />}
           </div>
         );
@@ -216,7 +245,15 @@ export default function Library() {
         const items = albumScroll.visible();
         return (
           <div>
-            {items.length > 0 ? (
+            <Show when={albumsRes.loading}>
+              <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                <For each={[0,0,0,0,0,0,0,0,0,0,0,0]}>
+                  {() => <div class="animate-pulse bg-[#2a2a2a] rounded-lg" style="aspect-ratio: 1" />}
+                </For>
+              </div>
+            </Show>
+            <Show when={!albumsRes.loading}>
+              {items.length > 0 ? (
               <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                 <For each={items}>
                   {(item) => item.kind === "real" ? (
@@ -247,6 +284,7 @@ export default function Library() {
             ) : (
               <p class="text-[#888] text-sm mt-8 text-center">No albums found</p>
             )}
+            </Show>
             {albumScroll.hasMore() && <div ref={albumScroll.sentinelRef} class="h-4" />}
           </div>
         );
@@ -257,7 +295,7 @@ export default function Library() {
         const visibleTracks = singlesScroll.visible();
         return (
           <div>
-            {singlesTracks.loading ? (
+            {singlesTracks.loading || virtualRes.loading ? (
               <div class="space-y-2">
                 {Array.from({ length: 8 }).map(() => (
                   <div class="flex items-center gap-3 h-14 bg-[#1a1a1a] rounded animate-pulse px-2">
