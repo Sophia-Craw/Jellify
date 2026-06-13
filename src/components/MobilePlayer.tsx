@@ -3,7 +3,10 @@ import { A } from "@solidjs/router";
 import { usePlayer } from "~/stores/player";
 import { getImageUrl, makeSlug } from "~/lib/jellyfin";
 import MarqueeText from "./MarqueeText";
-import { playerExpanded, setPlayerExpanded } from "~/lib/mobileHeader";
+import { playerExpanded, setPlayerExpanded, setPlayerBgColor, playerBgColor } from "~/lib/mobileHeader";
+import { extractDominantColor } from "~/lib/colorExtractor";
+import { getOutputDeviceName, clearOutputDeviceCache } from "~/lib/jellify-player";
+import { isCapacitor } from "~/lib/capacitor";
 import {
   Music, ChevronDown, MoreHorizontal, Shuffle, SkipBack,
   Play, Pause, SkipForward, Repeat, Repeat1, ListMusic, Plus, Volume2
@@ -30,6 +33,28 @@ export default function MobilePlayer() {
   const [coverAnimating, setCoverAnimating] = createSignal(false);
 
   const track = currentTrack;
+
+  createEffect(() => {
+    const t = track();
+    if (!t) { setPlayerBgColor(""); return; }
+    const url = getImageUrl(t.AlbumId || t.Id, "Primary", 60);
+    extractDominantColor(url).then(setPlayerBgColor);
+  });
+
+  const [outputDeviceName, setOutputDeviceName] = createSignal("");
+
+  onCleanup(() => {
+    clearOutputDeviceCache();
+  });
+
+  if (isCapacitor()) {
+    getOutputDeviceName().then(setOutputDeviceName);
+    const interval = setInterval(() => {
+      clearOutputDeviceCache();
+      getOutputDeviceName().then(setOutputDeviceName);
+    }, 3000);
+    onCleanup(() => clearInterval(interval));
+  }
 
   function formatTime(seconds: number): string {
     if (!seconds || !isFinite(seconds)) return "0:00";
@@ -127,7 +152,7 @@ export default function MobilePlayer() {
     return "100%";
   };
 
-  const transitionClass = () => isDragging() ? "transition-none" : "transition-transform duration-300 ease-out";
+  const transitionClass = () => isDragging() ? "transition-none" : "transition-[transform,background-color] duration-300 ease-out";
 
   return (
     <>
@@ -135,7 +160,8 @@ export default function MobilePlayer() {
       {track() && !playerExpanded() && (
         <div
           onClick={() => setPlayerExpanded(true)}
-          class="mx-3 mb-1 rounded-xl bg-[#1a1a1a] border border-[#2a2a2a] overflow-hidden cursor-pointer active:scale-[0.98] transition-transform"
+          class="mx-3 mb-1 rounded-xl border border-[#2a2a2a] overflow-hidden cursor-pointer active:scale-[0.98] transition-all"
+          style={{ "background-color": playerBgColor() || "#1a1a1a" }}
         >
           <div class="h-0.5 bg-[#2a2a2a] relative">
             <div
@@ -175,8 +201,12 @@ export default function MobilePlayer() {
       {track() && (
         <div
           ref={fullPlayerRef}
-          class={`fixed left-0 right-0 bottom-0 z-[90] bg-[#121212] flex flex-col ${transitionClass()}`}
-          style={{ transform: `translateY(${translateY()})`, top: "calc(env(safe-area-inset-top, var(--safe-area-inset-top, 0px)) + 3rem)" }}
+          class={`fixed left-0 right-0 bottom-0 z-[90] flex flex-col ${transitionClass()}`}
+          style={{
+            transform: `translateY(${translateY()})`,
+            top: "calc(env(safe-area-inset-top, var(--safe-area-inset-top, 0px)) + 1.5rem)",
+            "background-color": playerBgColor() || "#121212",
+          }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
@@ -299,20 +329,11 @@ export default function MobilePlayer() {
             </div>
           </div>
 
-          {/* Volume & Queue */}
+          {/* Output device & Queue */}
           <div class="flex items-center justify-between px-6 mt-3 mb-6 shrink-0">
-            <div class="flex items-center gap-2 flex-1">
-              <Volume2 size={16} class="text-white" />
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.01}
-                value={state.volume}
-                onInput={(e) => player.setVolume(Number(e.currentTarget.value))}
-                class="w-24 h-1 cursor-pointer"
-                style={{ "--fill": `${state.volume * 100}%` } as any}
-              />
+            <div class="flex items-center gap-2 flex-1 min-w-0">
+              <Volume2 size={16} class="text-white shrink-0" />
+              <span class="text-xs text-[#888] truncate">{outputDeviceName() || "Unknown"}</span>
             </div>
             <button
               onClick={toggleQueue}

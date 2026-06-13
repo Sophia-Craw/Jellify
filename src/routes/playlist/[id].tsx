@@ -1,9 +1,9 @@
-import { createResource, createMemo, createSignal, createEffect, onMount, onCleanup } from "solid-js";
+import { createResource, createMemo, createSignal, createEffect, onMount, onCleanup, Show } from "solid-js";
 import { useParams } from "@solidjs/router";
 import { usePlaylists } from "~/stores/playlists";
 import { fetchAlbumInfo, getImageUrl } from "~/lib/jellyfin";
 import { useIsMobile } from "~/lib/mobile";
-import { Music, Play, ArrowUpDown, GripVertical, Pencil } from "lucide-solid";
+import { Music, Play, ArrowUpDown, GripVertical, Pencil, ListMusic } from "lucide-solid";
 import { usePlayer } from "~/stores/player";
 import type { Audio } from "~/lib/types";
 import Sortable from "sortablejs";
@@ -160,7 +160,15 @@ export default function PlaylistPage() {
   const p = playlist;
 
   return (
-    <><div class="pt-32 px-6 pb-2">
+    <><div class="relative overflow-hidden pt-32 px-6 pb-2">
+      {/* Blurred cover art backdrop */}
+      <Show when={p()?.coverDataUrl}>
+        <div aria-hidden="true" class="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
+          <div class="absolute top-0 left-0 right-0 h-[50vh] bg-cover bg-center blur-[60px] opacity-30" style={{ "background-image": `url(${p()!.coverDataUrl})` }} />
+          <div class="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-transparent" />
+        </div>
+      </Show>
+
       {!hydrated() ? (
         <div class="animate-pulse space-y-4">
           <div class="w-24 h-4 bg-[#2a2a2a] rounded" />
@@ -221,6 +229,13 @@ export default function PlaylistPage() {
                     title={reorderMode() ? "Done reordering" : "Reorder tracks"}
                   >
                     <ArrowUpDown size={18} />
+                  </button>
+                  <button
+                    onClick={() => player.appendToQueue(tracks()!)}
+                    class="p-2 rounded-full bg-[#2a2a2a] text-[#888] hover:text-white hover:bg-[#333] transition-colors cursor-pointer"
+                    title="Add playlist to queue"
+                  >
+                    <ListMusic size={18} />
                   </button>
                 </div>
               )}

@@ -42,6 +42,7 @@ export interface JellifyPlayerPlugin {
   requestBatteryOptimization(): Promise<{ exempt: boolean }>;
   requestPermissions?: () => Promise<PermissionResult>;
   checkPermissions?: () => Promise<PermissionResult>;
+  getCurrentOutputDevice?: () => Promise<{ name: string }>;
 }
 
 const JellifyPlayer = registerPlugin<JellifyPlayerPlugin>("JellifyPlayer");
@@ -125,6 +126,38 @@ export async function onPlayerStateChange(
 ): Promise<() => Promise<void>> {
   const handle = await JellifyPlayer.addListener("playerStateChange", callback);
   return () => handle.remove();
+}
+
+let cachedDeviceName: string | null = null;
+
+export async function getOutputDeviceName(): Promise<string> {
+  if (cachedDeviceName) return cachedDeviceName;
+
+  try {
+    if (JellifyPlayer.getCurrentOutputDevice) {
+      const result = await JellifyPlayer.getCurrentOutputDevice();
+      cachedDeviceName = result.name;
+      return result.name;
+    }
+  } catch {}
+
+  // Web fallback
+  try {
+    if (typeof navigator !== "undefined" && navigator.mediaDevices?.enumerateDevices) {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const audioOutputs = devices.filter(d => d.kind === "audiooutput");
+      if (audioOutputs.length > 0 && audioOutputs[0].label) {
+        cachedDeviceName = audioOutputs[0].label;
+        return audioOutputs[0].label;
+      }
+    }
+  } catch {}
+
+  return "Unknown";
+}
+
+export function clearOutputDeviceCache() {
+  cachedDeviceName = null;
 }
 
 export default JellifyPlayer;

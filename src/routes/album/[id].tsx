@@ -1,12 +1,14 @@
 import { createResource, createMemo, createEffect, onMount, onCleanup, Show } from "solid-js";
 import { useParams, A } from "@solidjs/router";
 import { fetchAlbumInfo, fetchAlbumTracks, getImageUrl } from "~/lib/jellyfin";
-import { Music, AlertTriangle } from "lucide-solid";
+import { Music, AlertTriangle, ListMusic } from "lucide-solid";
 import TrackTable from "~/components/TrackTable";
+import { usePlayer } from "~/stores/player";
 import { setHeaderTitle, setHeaderSubtitle, setHeaderImageUrl, setShowHeaderExtra } from "~/lib/mobileHeader";
 
 export default function AlbumPage() {
   const params = useParams();
+  const player = usePlayer();
   const [album, albumRes] = createResource(() => params.id, fetchAlbumInfo);
   const [tracks, tracksRes] = createResource(() => params.id, fetchAlbumTracks);
 
@@ -50,7 +52,15 @@ export default function AlbumPage() {
   });
 
   return (
-    <div class="pt-32 px-6 pb-2">
+    <div class="relative overflow-hidden pt-32 px-6 pb-2">
+      {/* Blurred cover art backdrop */}
+      <Show when={album()?.ImageTags?.Primary}>
+        <div aria-hidden="true" class="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
+          <div class="absolute top-0 left-0 right-0 h-[50vh] bg-cover bg-center blur-[60px] opacity-30" style={{ "background-image": `url(${getImageUrl(album()!.Id, "Primary", 300)})` }} />
+          <div class="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-transparent" />
+        </div>
+      </Show>
+
       {album() && (
         <>
           <div class="flex flex-col sm:flex-row gap-6 mb-8 items-center sm:items-start text-center sm:text-left">
@@ -83,6 +93,17 @@ export default function AlbumPage() {
                 <span>•</span>
                 <span>{duration()}</span>
               </div>
+
+              {tracks() && tracks()!.length > 0 && (
+                <button
+                  onClick={() => player.appendToQueue(tracks()!)}
+                  class="mt-3 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#2a2a2a] text-xs text-[#888] hover:text-white hover:bg-[#333] transition-colors cursor-pointer"
+                  title="Add album to queue"
+                >
+                  <ListMusic size={14} />
+                  Add to queue
+                </button>
+              )}
             </div>
           </div>
 

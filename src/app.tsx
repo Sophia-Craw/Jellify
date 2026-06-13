@@ -13,7 +13,7 @@ import AuthModal from "~/components/AuthModal";
 import TitleBar from "~/components/TitleBar";
 import { useIsMobile } from "~/lib/mobile";
 import { setupStatusBar, setupKeepAwake, setupWebviewGuardian, setupBatteryOptimization, isCapacitor } from "~/lib/capacitor";
-import { headerTitle, headerSubtitle, headerImageUrl, headerImageShape, showHeaderExtra, playerExpanded } from "~/lib/mobileHeader";
+import { headerTitle, headerSubtitle, headerImageUrl, headerImageShape, showHeaderExtra, playerExpanded, playerBgColor } from "~/lib/mobileHeader";
 import { PlayerProvider, usePlayer } from "~/stores/player";
 import { PlaylistsProvider } from "~/stores/playlists";
 import { AuthProvider, useAuth } from "~/stores/auth";
@@ -111,12 +111,20 @@ function AppLayout(props: { children: any }) {
             classList={{
               "bg-gradient-to-b from-black/90 to-transparent": !stuck() && !playerExpanded(),
               "bg-[#121212]/95 backdrop-blur": stuck() && !playerExpanded(),
-              "bg-[#121212]": playerExpanded(),
             }}
-            style="padding-top: env(safe-area-inset-top, var(--safe-area-inset-top, 0px)); min-height: 3rem"
-          >
-            <div class="flex items-center justify-between px-4 h-12 pointer-events-auto"
-              classList={{ "pointer-events-none opacity-0": playerExpanded() }}
+            style={{
+              "padding-top": "env(safe-area-inset-top, var(--safe-area-inset-top, 0px))",
+              "min-height": playerExpanded() ? undefined : "3rem",
+              height: playerExpanded() ? "calc(env(safe-area-inset-top, var(--safe-area-inset-top, 0px)) + 1.5rem)" : undefined,
+              "box-sizing": playerExpanded() ? "border-box" : undefined,
+              "background-color": playerExpanded() && playerBgColor() ? playerBgColor() : undefined,
+              overflow: playerExpanded() ? "hidden" : undefined,
+            }}>
+            <div class="flex items-center justify-between px-4 pointer-events-auto"
+              classList={{
+                "pointer-events-none opacity-0 h-0 overflow-hidden": playerExpanded(),
+                "h-12": !playerExpanded(),
+              }}
             >
               <button
                 onClick={() => window.history.back()}

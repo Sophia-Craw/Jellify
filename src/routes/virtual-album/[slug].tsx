@@ -4,7 +4,7 @@ import { fetchOrphanedTracks, getImageUrl } from "~/lib/jellyfin";
 import { useInfiniteScroll } from "~/lib/useInfiniteScroll";
 import { useAuth } from "~/stores/auth";
 import { usePlayer } from "~/stores/player";
-import { Music } from "lucide-solid";
+import { Music, ListMusic } from "lucide-solid";
 import TrackMenu from "~/components/TrackMenu";
 import TrackRowCard from "~/components/TrackRowCard";
 import { useIsMobile } from "~/lib/mobile";
@@ -87,7 +87,15 @@ export default function VirtualAlbumPage() {
   });
 
   return (
-    <div class="pt-32 px-6 pb-2">
+    <div class="relative overflow-hidden pt-32 px-6 pb-2">
+      {/* Blurred cover art backdrop */}
+      <Show when={hasCover()}>
+        <div aria-hidden="true" class="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
+          <div class="absolute top-0 left-0 right-0 h-[50vh] bg-cover bg-center blur-[60px] opacity-30" style={{ "background-image": `url(${getImageUrl(firstTrack()!.Id, "Primary", 300)})` }} />
+          <div class="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-transparent" />
+        </div>
+      </Show>
+
       <Show when={!orphans() || orphans.loading} fallback={
         <Show when={album()} fallback={
           <p class="text-[#888] text-sm mt-8 text-center">Album not found</p>
@@ -125,6 +133,17 @@ export default function VirtualAlbumPage() {
                 <span>•</span>
                 <span>{totalDuration()}</span>
               </div>
+
+              {tracks().length > 0 && (
+                <button
+                  onClick={() => player.appendToQueue(tracks())}
+                  class="mt-3 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#2a2a2a] text-xs text-[#888] hover:text-white hover:bg-[#333] transition-colors cursor-pointer"
+                  title="Add album to queue"
+                >
+                  <ListMusic size={14} />
+                  Add to queue
+                </button>
+              )}
             </div>
           </div>
 

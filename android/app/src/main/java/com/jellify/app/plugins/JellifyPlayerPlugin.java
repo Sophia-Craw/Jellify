@@ -12,6 +12,8 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.PowerManager;
 import android.Manifest;
+import android.media.AudioDeviceInfo;
+import android.media.AudioManager;
 import android.util.Log;
 import androidx.media3.session.MediaController;
 import androidx.media3.session.SessionToken;
@@ -280,6 +282,52 @@ public class JellifyPlayerPlugin extends Plugin {
             );
             call.resolve();
         });
+    }
+
+    @PluginMethod
+    public void getCurrentOutputDevice(PluginCall call) {
+        Context ctx = getContext();
+        if (ctx == null) { call.resolve(new JSObject().put("name", Build.MODEL)); return; }
+
+        AudioManager audioManager = (AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
+        if (audioManager == null) { call.resolve(new JSObject().put("name", Build.MODEL)); return; }
+
+        AudioDeviceInfo[] devices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS);
+        String deviceName = null;
+
+        // Prefer Bluetooth A2DP (music-quality Bluetooth)
+        for (AudioDeviceInfo d : devices) {
+            int type = d.getType();
+            if (type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO) {
+                CharSequence name = d.getProductName();
+                if (name != null && name.length() > 0) {
+                    deviceName = name.toString();
+                } else {
+                    deviceName = "Bluetooth";
+                }
+                break;
+            }
+        }
+
+        // Fallback to wired headphones
+        if (deviceName == null) {
+            for (AudioDeviceInfo d : devices) {
+                int type = d.getType();
+                if (type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES
+                    || type == AudioDeviceInfo.TYPE_WIRED_HEADSET
+                    || type == AudioDeviceInfo.TYPE_USB_HEADSET) {
+                    deviceName = "Headphones";
+                    break;
+                }
+            }
+        }
+
+        // Default to device model name
+        if (deviceName == null) {
+            deviceName = Build.MODEL; // e.g., "Pixel 8"
+        }
+
+        call.resolve(new JSObject().put("name", deviceName));
     }
 
     @Override

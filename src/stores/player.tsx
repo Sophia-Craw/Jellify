@@ -97,6 +97,7 @@ interface PlayerContextValue {
   state: PlayerState;
   play: (track: Audio, queue?: Audio[], startIndex?: number) => void;
   addToQueue: (track: Audio) => void;
+  appendToQueue: (tracks: Audio[]) => void;
   togglePlay: () => void;
   pause: () => void;
   resume: () => void;
@@ -312,6 +313,32 @@ export function PlayerProvider(props: { children: JSX.Element }) {
             album: track.Album || "",
             artworkUrl: getImageUrl(track.AlbumId || track.Id, "Primary", 512),
           }],
+        });
+      } catch {}
+    }
+  }
+
+  async function appendToQueue(tracks: Audio[]) {
+    if (tracks.length === 0) return;
+    if (state.queue.length === 0) {
+      play(tracks[0], tracks, 0);
+      return;
+    }
+    setState("queue", [...state.queue, ...tracks]);
+    if (state.shuffle) {
+      setState("originalQueue", [...state.originalQueue, ...tracks]);
+    }
+    if (nativeBackend === "jellify" && jellifyPlayer?.isJellifyPlayerAvailable()) {
+      try {
+        await jellifyPlayer.default.addToQueue({
+          items: tracks.map(t => ({
+            id: t.Id,
+            url: getStreamUrl(t.Id),
+            title: t.Name || "",
+            artist: t.ArtistItems?.[0]?.Name || t.Artists?.join(", ") || "",
+            album: t.Album || "",
+            artworkUrl: getImageUrl(t.AlbumId || t.Id, "Primary", 512),
+          })),
         });
       } catch {}
     }
@@ -620,6 +647,7 @@ export function PlayerProvider(props: { children: JSX.Element }) {
           state,
           play,
           addToQueue,
+          appendToQueue,
           togglePlay,
           pause,
           resume,
