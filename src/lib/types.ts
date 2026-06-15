@@ -25,6 +25,9 @@ export interface BaseItem {
   };
   LocationType?: string;
   MediaType?: string;
+  DateCreated?: string;
+  PlayCount?: number;
+  CommunityRating?: number;
 }
 
 export interface MusicAlbum extends BaseItem {

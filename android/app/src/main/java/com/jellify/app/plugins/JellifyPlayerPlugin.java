@@ -57,6 +57,7 @@ public class JellifyPlayerPlugin extends Plugin {
             ret.put("currentIndex", state.currentIndex);
             ret.put("queueSize", state.queueSize);
             ret.put("repeatMode", state.repeatMode);
+            ret.put("shuffleEnabled", state.shuffleEnabled);
             notifyListeners("playerStateChange", ret);
         });
     }
@@ -191,6 +192,7 @@ public class JellifyPlayerPlugin extends Plugin {
             state.put("repeatMode", service.getRepeatMode());
             state.put("currentTime", service.getCurrentTimeSec());
             state.put("duration", service.getDurationSec());
+            state.put("shuffleEnabled", service.isShuffleMode());
             call.resolve(state);
         });
     }
@@ -280,6 +282,14 @@ public class JellifyPlayerPlugin extends Plugin {
                 call.getInt("fromIndex", -1),
                 call.getInt("toIndex", -1)
             );
+            call.resolve();
+        });
+    }
+
+    @PluginMethod
+    public void setShuffle(PluginCall call) {
+        runOnService(call, service -> {
+            service.setShuffleMode(call.getBoolean("enabled", false));
             call.resolve();
         });
     }

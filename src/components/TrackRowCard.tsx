@@ -1,5 +1,4 @@
 import { createSignal, Show } from "solid-js";
-import { A } from "@solidjs/router";
 import { getImageUrl } from "~/lib/jellyfin";
 import { Music } from "lucide-solid";
 import TrackBottomSheet from "./TrackBottomSheet";
@@ -58,7 +57,7 @@ export default function TrackRowCard(props: Props) {
     <>
       <button
         type="button"
-        class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors select-none w-full text-left cursor-pointer"
+        class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors select-none w-full text-left cursor-pointer active:scale-[0.97] active:opacity-80"
         classList={{
           "bg-[#1db954]/10": props.isActive,
           "hover:bg-[#1a1a1a]": true,
@@ -69,11 +68,25 @@ export default function TrackRowCard(props: Props) {
         oncontextmenu={handleContextMenu}
         onClick={handleClick}
       >
-        <div class="w-10 h-10 rounded-md bg-[#333] overflow-hidden flex items-center justify-center flex-shrink-0">
+        <div class="w-10 h-10 rounded-md overflow-hidden flex-shrink-0 relative">
+          <div class="absolute inset-0 bg-[#2a2a2a] animate-pulse rounded-md" />
           {hasCover ? (
-            <img src={getImageUrl(coverUrl, "Primary", 60)} alt="" class="w-full h-full object-cover" />
+            <img
+              src={getImageUrl(coverUrl, "Primary", 60)}
+              alt=""
+              class="w-full h-full object-cover relative"
+              style="opacity: 0"
+              onLoad={(e) => {
+                const img = e.currentTarget;
+                img.style.opacity = "1";
+                const skeleton = img.parentElement?.firstElementChild as HTMLElement | null;
+                if (skeleton) skeleton.style.display = "none";
+              }}
+            />
           ) : (
-            <Music size={16} class="text-[#555]" />
+            <div class="w-full h-full flex items-center justify-center relative bg-[#333] rounded-md">
+              <Music size={16} class="text-[#555]" />
+            </div>
           )}
         </div>
         <div class="flex-1 min-w-0">
@@ -81,13 +94,7 @@ export default function TrackRowCard(props: Props) {
             {props.track.Name}
           </p>
           <p class="text-xs text-[#888] truncate mt-0.5">
-            {props.track.ArtistItems?.[0] ? (
-              <A href={`/artist/${props.track.ArtistItems[0].Id}`} class="hover:underline">
-                {props.track.ArtistItems[0].Name}
-              </A>
-            ) : (
-              props.track.Artists?.join(", ") || props.track.AlbumArtist || ""
-            )}
+            {props.track.ArtistItems?.[0]?.Name || props.track.Artists?.join(", ") || props.track.AlbumArtist || ""}
           </p>
         </div>
         <span class="text-xs text-[#555] tabular-nums flex-shrink-0">{formatMobileDuration(props.track.RunTimeTicks)}</span>

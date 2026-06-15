@@ -38,11 +38,13 @@ public class JellifyPlayerService extends MediaSessionService {
         public final int currentIndex;
         public final int queueSize;
         public final int repeatMode;
-        public PlayerState(boolean isPlaying, int currentIndex, int queueSize, int repeatMode) {
+        public final boolean shuffleEnabled;
+        public PlayerState(boolean isPlaying, int currentIndex, int queueSize, int repeatMode, boolean shuffleEnabled) {
             this.isPlaying = isPlaying;
             this.currentIndex = currentIndex;
             this.queueSize = queueSize;
             this.repeatMode = repeatMode;
+            this.shuffleEnabled = shuffleEnabled;
         }
     }
 
@@ -58,6 +60,7 @@ public class JellifyPlayerService extends MediaSessionService {
     public static final String ACTION_PAUSE = "com.jellify.app.action.PAUSE";
     public static final String ACTION_NEXT = "com.jellify.app.action.NEXT";
     public static final String ACTION_PREV = "com.jellify.app.action.PREV";
+    public static final String ACTION_TOGGLE_SHUFFLE = "com.jellify.app.action.TOGGLE_SHUFFLE";
 
     private static JellifyPlayerService instance;
 
@@ -78,6 +81,8 @@ public class JellifyPlayerService extends MediaSessionService {
     public static final int REPEAT_ALL = 1;
     public static final int REPEAT_ONE = 2;
     private int repeatMode = REPEAT_OFF;
+    private boolean shuffleEnabled = false;
+    private boolean suppressShuffleChange = false;
 
     private List<MediaItem> buildMediaItems() {
         List<MediaItem> items = new ArrayList<>();
@@ -214,6 +219,14 @@ public class JellifyPlayerService extends MediaSessionService {
                 cancelBufferingTimeout();
                 advanceToNext();
             }
+
+            @Override
+            public void onShuffleModeEnabledChanged(boolean shuffleModeEnabled) {
+                if (suppressShuffleChange) return;
+                shuffleEnabled = shuffleModeEnabled;
+                updateNotification();
+                fireStateChange();
+            }
         });
 
         mediaSession = new MediaSession.Builder(this, exoPlayer)
@@ -250,6 +263,9 @@ public class JellifyPlayerService extends MediaSessionService {
                     break;
                 case ACTION_PREV:
                     prev();
+                    break;
+                case ACTION_TOGGLE_SHUFFLE:
+                    setShuffleMode(!shuffleEnabled);
                     break;
             }
         }
@@ -293,12 +309,13 @@ public class JellifyPlayerService extends MediaSessionService {
     // ── Queue management ──────────────────────────────────
 
     public void replaceQueue(List<QueueItem> items, int newIndex) {
+        suppressShuffleChange = true;
         queue = new ArrayList<>(items);
         currentIndex = newIndex;
-        syncExoPlayerQueue();
-        if (exoPlayer.getPlayWhenReady()) {
-            exoPlayer.play();
-        }
+        int count = exoPlayer.getMediaItemCount();
+        exoPlayer.replaceMediaItems(0, count, buildMediaItems());
+        exoPlayer.setShuffleModeEnabled(shuffleEnabled);
+        suppressShuffleChange = false;
         updateNotification();
     }
 
@@ -385,6 +402,16 @@ public class JellifyPlayerService extends MediaSessionService {
     public void setRepeatMode(int mode) {
         this.repeatMode = mode;
         exoPlayer.setRepeatMode(appToExoRepeat(mode));
+    }
+
+    public void setShuffleMode(boolean enabled) {
+        this.shuffleEnabled = enabled;
+        updateNotification();
+        fireStateChange();
+    }
+
+    public boolean isShuffleMode() {
+        return shuffleEnabled;
     }
 
     public int getQueueSize() {
@@ -486,7 +513,7 @@ public class JellifyPlayerService extends MediaSessionService {
     private void fireStateChange() {
         if (stateChangeListener != null) {
             stateChangeListener.onStateChanged(
-                new PlayerState(isPlaying(), getCurrentIndex(), queue.size(), repeatMode)
+                new PlayerState(isPlaying(), getCurrentIndex(), queue.size(), repeatMode, shuffleEnabled)
             );
         }
     }
@@ -535,6 +562,13 @@ public class JellifyPlayerService extends MediaSessionService {
             this, 3, nextIntent, flags
         );
 
+        Intent shuffleIntent = new Intent(this, JellifyPlayerService.class).setAction(ACTION_TOGGLE_SHUFFLE);
+        PendingIntent shufflePendingIntent = PendingIntent.getService(
+            this, 4, shuffleIntent, flags
+        );
+
+        int shuffleIcon = R.drawable.ic_shuffle;
+
         androidx.media.app.NotificationCompat.MediaStyle mediaStyle =
             new androidx.media.app.NotificationCompat.MediaStyle()
                 .setShowActionsInCompactView(0, 1, 2);
@@ -548,6 +582,7 @@ public class JellifyPlayerService extends MediaSessionService {
             .setContentIntent(contentPendingIntent)
             .setOngoing(true)
             .setStyle(mediaStyle)
+            .addAction(shuffleIcon, "Shuffle", shufflePendingIntent)
             .addAction(android.R.drawable.ic_media_previous, "Previous", prevPendingIntent)
             .addAction(
                 playing ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play,

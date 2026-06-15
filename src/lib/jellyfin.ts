@@ -9,7 +9,7 @@ export function invalidateAlbumCache() {
   albumsCache.clear();
 }
 
-let orphanCache: { albums: VirtualAlbum[]; version: number } | null = null;
+let orphanCache: { albums: VirtualAlbum[]; version: number; sortBy: string; sortOrder: string } | null = null;
 
 export interface StoredAuth {
   serverUrl: string;
@@ -87,15 +87,91 @@ export function getStreamUrl(itemId: string): string {
   return `${auth?.serverUrl || ""}/Audio/${itemId}/stream?static=true&api_key=${auth?.accessToken || ""}`;
 }
 
-export async function fetchAlbums(fields?: string, genreId?: string): Promise<MusicAlbum[]> {
-  const key = `${fields || ""}|${genreId || ""}`;
+let albumIdsCache: Set<string> | null = null;
+
+export function invalidateAlbumIdsCache() {
+  albumIdsCache = null;
+}
+
+export async function fetchAllAlbumIds(): Promise<Set<string>> {
+  if (albumIdsCache) return albumIdsCache;
+  const albums = await fetchAllItems<MusicAlbum>("/Users/{userId}/Items", {
+    Recursive: "true",
+    IncludeItemTypes: "MusicAlbum",
+    Fields: "Id",
+  });
+  albumIdsCache = new Set(albums.map((a) => a.Id));
+  return albumIdsCache;
+}
+
+export async function fetchAlbumsPage(
+  startIndex: number,
+  limit: number,
+  fields?: string,
+  genreId?: string,
+  sortBy = "SortName",
+  sortOrder = "Ascending"
+): Promise<{ items: MusicAlbum[]; totalCount: number }> {
+  const params: Record<string, string> = {
+    Recursive: "true",
+    IncludeItemTypes: "MusicAlbum",
+    SortBy: sortBy,
+    SortOrder: sortOrder,
+    StartIndex: String(startIndex),
+    Limit: String(limit),
+  };
+  if (fields) params.Fields = fields;
+  if (genreId) params.GenreIds = genreId;
+  const data = await api<ItemsResponse<MusicAlbum>>("/Users/{userId}/Items", params);
+  return { items: data.Items, totalCount: data.TotalRecordCount ?? 0 };
+}
+
+export async function fetchArtistsPage(
+  startIndex: number,
+  limit: number,
+  genreId?: string,
+  sortBy = "SortName",
+  sortOrder = "Ascending"
+): Promise<{ items: MusicArtist[]; totalCount: number }> {
+  const params: Record<string, string> = {
+    UserId: await getUserId(),
+    SortBy: sortBy,
+    SortOrder: sortOrder,
+    StartIndex: String(startIndex),
+    Limit: String(limit),
+  };
+  if (genreId) params.GenreIds = genreId;
+  const data = await api<ItemsResponse<MusicArtist>>("/Artists/AlbumArtists", params);
+  return { items: data.Items, totalCount: data.TotalRecordCount ?? 0 };
+}
+
+export async function fetchAudioPage(
+  startIndex: number,
+  limit: number,
+  sortBy = "SortName",
+  sortOrder = "Ascending"
+): Promise<{ items: Audio[]; totalCount: number }> {
+  const data = await api<ItemsResponse<Audio>>("/Users/{userId}/Items", {
+    Recursive: "true",
+    IncludeItemTypes: "Audio",
+    Fields: "Album,Artists,AlbumArtists,ArtistItems,AlbumArtist,AlbumId,PremiereDate,DateCreated,PlayCount,CommunityRating,IndexNumber",
+    SortBy: sortBy,
+    SortOrder: sortOrder,
+    StartIndex: String(startIndex),
+    Limit: String(limit),
+  });
+  return { items: data.Items, totalCount: data.TotalRecordCount ?? 0 };
+}
+
+export async function fetchAlbums(fields?: string, genreId?: string, sortBy = "SortName", sortOrder = "Ascending"): Promise<MusicAlbum[]> {
+  const key = `${fields || ""}|${genreId || ""}|${sortBy}|${sortOrder}`;
   const cached = albumsCache.get(key);
   if (cached) return cached;
   const params: Record<string, string> = {
     Recursive: "true",
     IncludeItemTypes: "MusicAlbum",
-    SortBy: "SortName",
-    SortOrder: "Ascending",
+    SortBy: sortBy,
+    SortOrder: sortOrder,
   };
   if (fields) params.Fields = fields;
   if (genreId) params.GenreIds = genreId;
@@ -104,9 +180,11 @@ export async function fetchAlbums(fields?: string, genreId?: string): Promise<Mu
   return data.Items;
 }
 
-export async function fetchArtists(genreId?: string): Promise<MusicArtist[]> {
+export async function fetchArtists(genreId?: string, sortBy = "SortName", sortOrder = "Ascending"): Promise<MusicArtist[]> {
   const params: Record<string, string> = { UserId: await getUserId() };
   if (genreId) params.GenreIds = genreId;
+  params.SortBy = sortBy;
+  params.SortOrder = sortOrder;
   const data = await api<ItemsResponse<MusicArtist>>(`/Artists/AlbumArtists`, params);
   return data.Items;
 }
@@ -160,8 +238,8 @@ export async function fetchFrequentAlbums(limit = 10): Promise<MusicAlbum[]> {
   return data.Items;
 }
 
-export async function fetchSinglesTracks(genreId?: string, preFetchedAlbums?: MusicAlbum[]): Promise<Audio[]> {
-  const albums = preFetchedAlbums || await fetchAlbums("ChildCount", genreId);
+export async function fetchSinglesTracks(genreId?: string, preFetchedAlbums?: MusicAlbum[], sortBy = "SortName", sortOrder = "Ascending"): Promise<Audio[]> {
+  const albums = preFetchedAlbums || await fetchAlbums("ChildCount", genreId, sortBy, sortOrder);
   const singles = albums.filter((a) => (a.ChildCount ?? 1) === 1);
   if (!singles.length) return [];
   const batchSize = 15;
@@ -204,8 +282,8 @@ async function fetchAllItems<T>(path: string, params: Record<string, string>, pa
   return all;
 }
 
-export async function fetchOrphanedTracks(version = 0): Promise<VirtualAlbum[]> {
-  if (orphanCache && orphanCache.version === version) return orphanCache.albums;
+export async function fetchOrphanedTracks(version = 0, sortBy = "SortName", sortOrder = "Ascending"): Promise<VirtualAlbum[]> {
+  if (orphanCache && orphanCache.version === version && orphanCache.sortBy === sortBy && orphanCache.sortOrder === sortOrder) return orphanCache.albums;
 
   const albums = await fetchAllItems<MusicAlbum>("/Users/{userId}/Items", {
     Recursive: "true",
@@ -262,8 +340,30 @@ export async function fetchOrphanedTracks(version = 0): Promise<VirtualAlbum[]> 
     });
   }
 
-  virtual.sort((a, b) => a.name.localeCompare(b.name));
-  orphanCache = { albums: virtual, version };
+  if (sortBy === "SortName" || sortBy === "name") {
+    virtual.sort((a, b) => sortOrder === "Ascending"
+      ? a.name.localeCompare(b.name)
+      : b.name.localeCompare(a.name));
+  } else if (sortBy === "ProductionYear" || sortBy === "PremiereDate" || sortBy === "DateCreated") {
+    virtual.sort((a, b) => {
+      const dateA = a.tracks[0]?.PremiereDate || a.tracks[0]?.DateCreated || "";
+      const dateB = b.tracks[0]?.PremiereDate || b.tracks[0]?.DateCreated || "";
+      return sortOrder === "Ascending" ? dateA.localeCompare(dateB) : dateB.localeCompare(dateA);
+    });
+  } else if (sortBy === "PlayCount") {
+    virtual.sort((a, b) => sortOrder === "Ascending"
+      ? (a.tracks.reduce((s, t) => s + (t.PlayCount || 0), 0) - b.tracks.reduce((s, t) => s + (t.PlayCount || 0), 0))
+      : (b.tracks.reduce((s, t) => s + (t.PlayCount || 0), 0) - a.tracks.reduce((s, t) => s + (t.PlayCount || 0), 0)));
+  } else if (sortBy === "CommunityRating") {
+    virtual.sort((a, b) => sortOrder === "Ascending"
+      ? ((a.tracks[0]?.CommunityRating || 0) - (b.tracks[0]?.CommunityRating || 0))
+      : ((b.tracks[0]?.CommunityRating || 0) - (a.tracks[0]?.CommunityRating || 0)));
+  } else if (sortBy === "trackCount") {
+    virtual.sort((a, b) => sortOrder === "Ascending"
+      ? a.trackCount - b.trackCount
+      : b.trackCount - a.trackCount);
+  }
+  orphanCache = { albums: virtual, version, sortBy, sortOrder };
   return virtual;
 }
 

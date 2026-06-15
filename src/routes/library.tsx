@@ -1,6 +1,6 @@
-import { createResource, createMemo, createSignal, For, Show, onMount, onCleanup } from "solid-js";
+import { createResource, createMemo, createSignal, createEffect, For, Show, onMount, onCleanup } from "solid-js";
 import { useSearchParams, A } from "@solidjs/router";
-import { fetchAlbums, fetchArtists, fetchGenres, fetchSinglesTracks, fetchOrphanedTracks, getImageUrl } from "~/lib/jellyfin";
+import { fetchAlbumsPage, fetchArtistsPage, fetchAudioPage, fetchAllAlbumIds, fetchAlbumTracks, fetchGenres, getImageUrl } from "~/lib/jellyfin";
 import type { AlbumTab, Genre, Audio, MusicAlbum, VirtualAlbum } from "~/lib/types";
 import AlbumCard from "~/components/AlbumCard";
 import ArtistCard from "~/components/ArtistCard";
@@ -9,10 +9,10 @@ import TrackRowCard from "~/components/TrackRowCard";
 import { usePlayer } from "~/stores/player";
 import { usePlaylists } from "~/stores/playlists";
 import { useAuth } from "~/stores/auth";
-import { useInfiniteScroll } from "~/lib/useInfiniteScroll";
+import { usePaginatedScroll } from "~/lib/usePaginatedScroll";
 import { useIsMobile } from "~/lib/mobile";
 import { setHeaderTitle, setHeaderSubtitle, setHeaderImageUrl, setShowHeaderExtra } from "~/lib/mobileHeader";
-import { Music, AlertTriangle } from "lucide-solid";
+import { Music, AlertTriangle, ArrowUpDown } from "lucide-solid";
 
 const TABS: { key: AlbumTab; label: string }[] = [
   { key: "playlists", label: "Playlists" },
@@ -20,6 +20,30 @@ const TABS: { key: AlbumTab; label: string }[] = [
   { key: "albums", label: "Albums" },
   { key: "singles", label: "Singles" },
 ];
+
+const SORT_OPTIONS: Record<string, { value: string; label: string }[]> = {
+  albums: [
+    { value: "SortName", label: "Name" },
+    { value: "ProductionYear", label: "Year" },
+    { value: "DateCreated", label: "Date Added" },
+    { value: "PlayCount", label: "Play Count" },
+    { value: "CommunityRating", label: "Rating" },
+  ],
+  singles: [
+    { value: "SortName", label: "Name" },
+    { value: "ProductionYear", label: "Year" },
+    { value: "DateCreated", label: "Date Added" },
+    { value: "PlayCount", label: "Play Count" },
+    { value: "CommunityRating", label: "Rating" },
+  ],
+  artists: [
+    { value: "SortName", label: "Name" },
+  ],
+  playlists: [
+    { value: "name", label: "Name" },
+    { value: "trackCount", label: "Track Count" },
+  ],
+};
 
 function formatSinglesDuration(ticks?: number): string {
   if (!ticks) return "0:00";
@@ -35,12 +59,55 @@ export default function Library() {
   const { state } = player;
   const { playlists } = usePlaylists();
   const [hydrated, setHydrated] = createSignal(false);
+  const [sortOpen, setSortOpen] = createSignal(false);
+  let sortRef: HTMLDivElement | undefined;
   onMount(() => setHydrated(true));
   const activeTab = createMemo<AlbumTab>(() =>
     (searchParams.tab as AlbumTab) || "playlists"
   );
   const { authVersion } = useAuth();
   const isMobile = useIsMobile();
+
+  function defaultSortBy(tab: AlbumTab): string {
+    if (tab === "playlists") return "name";
+    return "SortName";
+  }
+
+  const sortBy = createMemo(() => {
+    const sb = searchParams.sortBy;
+    if (Array.isArray(sb)) return sb[0] || defaultSortBy(activeTab());
+    return sb || defaultSortBy(activeTab());
+  });
+  const sortOrder = createMemo(() => {
+    const so = searchParams.sortOrder;
+    if (Array.isArray(so)) return so[0] === "Descending" ? "Descending" : "Ascending";
+    return so === "Descending" ? "Descending" : "Ascending";
+  });
+
+  function handleSortClick(field: string) {
+    if (sortBy() === field) {
+      setSearchParams({
+        tab: activeTab(),
+        genre: selectedGenre() || undefined,
+        sortBy: field,
+        sortOrder: sortOrder() === "Ascending" ? "Descending" : "Ascending",
+      });
+    } else {
+      setSearchParams({
+        tab: activeTab(),
+        genre: selectedGenre() || undefined,
+        sortBy: field,
+        sortOrder: "Ascending",
+      });
+    }
+    setSortOpen(false);
+  }
+
+  const currentSortLabel = createMemo(() => {
+    const options = SORT_OPTIONS[activeTab()] || [];
+    const found = options.find((o) => o.value === sortBy());
+    return found?.label || sortBy();
+  });
 
   const [genres, genresRes] = createResource(() => authVersion(), () => fetchGenres());
   const selectedGenre = createMemo(() => searchParams.genre || "");
@@ -50,19 +117,268 @@ export default function Library() {
     const g = genres();
     return g?.find((g) => g.Name === name)?.Id || "";
   });
-  const [albums, albumsRes] = createResource(() => ({ v: authVersion(), genre: selectedGenreId() }), (s) => fetchAlbums("ChildCount", s.genre || undefined), { initialValue: [] });
-  const [artists, artistsRes] = createResource(() => ({ v: authVersion(), genre: selectedGenreId() }), (s) => fetchArtists(s.genre || undefined), { initialValue: [] });
-  const [singlesTracks, singlesRes] = createResource(() => ({ v: authVersion(), genre: selectedGenreId() }), async (s) => fetchSinglesTracks(s.genre || undefined, albums()), { initialValue: [] });
-  const [virtualAlbums, virtualRes] = createResource(() => authVersion(), (v) => fetchOrphanedTracks(v), { initialValue: [] });
+
+  // Album IDs (cached, used for orphan detection)
+  const [albumIdsRes] = createResource(() => authVersion(), () => fetchAllAlbumIds());
+
+  // Paginated albums from Jellyfin
+  const albumScroll = usePaginatedScroll((startIndex) =>
+    fetchAlbumsPage(startIndex, 100, "ChildCount", selectedGenreId() || undefined, sortBy(), sortOrder())
+  );
+
+  // Paginated artists from Jellyfin
+  const artistScroll = usePaginatedScroll((startIndex) =>
+    fetchArtistsPage(startIndex, 100, selectedGenreId() || undefined, sortBy(), sortOrder())
+  );
+
+  // Paginated audio tracks (used for orphan/virtual album computation)
+  const audioScroll = usePaginatedScroll((startIndex) =>
+    fetchAudioPage(startIndex, 200, sortBy(), sortOrder())
+  );
+
+  // Reset all pagination when sort or genre changes, and load first page for active tab
+  let prevSortKey = "";
+  createEffect(() => {
+    const key = `${sortBy()}:${sortOrder()}:${selectedGenreId()}`;
+    if (key === prevSortKey) return;
+    prevSortKey = key;
+    console.log("library sort effect: key=", key, "tab=", activeTab(), "items:", { a: albumScroll.items().length, ar: artistScroll.items().length, au: audioScroll.items().length });
+
+    // Only reset scrolls for the active tab — other tabs keep their cache
+    const tab = activeTab();
+    if (tab === "albums" || tab === "singles") {
+      if (albumScroll.items().length > 0) albumScroll.reset();
+      if (audioScroll.items().length > 0) audioScroll.reset();
+      setRealSinglesTracks([]);
+      processedSingles.clear();
+      albumScroll.loadMore();
+      audioScroll.loadMore();
+      console.log("library: loadedMore albums+audio");
+    } else if (tab === "artists") {
+      if (artistScroll.items().length > 0) artistScroll.reset();
+      artistScroll.loadMore();
+      console.log("library: loadedMore artists");
+    }
+  });
+
+  // Load first page for active tab on mount and tab switches (only if not yet loaded)
+  createEffect(() => {
+    const tab = activeTab();
+    if (tab === "albums" || tab === "singles") {
+      if (albumScroll.initializing()) albumScroll.loadMore();
+      if (audioScroll.initializing()) audioScroll.loadMore();
+    } else if (tab === "artists") {
+      if (artistScroll.initializing()) artistScroll.loadMore();
+    }
+  });
+
+  // Orphan audio: tracks not belonging to any known album
+  const orphanAudio = createMemo(() => {
+    const ids = albumIdsRes();
+    const audio = audioScroll.items();
+    if (!ids || !audio.length) return [];
+    return audio.filter((t) => !t.AlbumId || !ids.has(t.AlbumId));
+  });
+
+  // Virtual albums computed reactively from orphan audio
+  const virtualAlbums = createMemo(() => {
+    const orphans = orphanAudio();
+    if (!orphans.length) return [];
+
+    const groups = new Map<string, Audio[]>();
+    const unknown: Audio[] = [];
+
+    for (const track of orphans) {
+      const albumName = track.Album?.trim();
+      if (albumName) {
+        const list = groups.get(albumName);
+        if (list) list.push(track);
+        else groups.set(albumName, [track]);
+      } else {
+        unknown.push(track);
+      }
+    }
+
+    const result: VirtualAlbum[] = [];
+
+    for (const [name, tracks] of groups) {
+      const sorted = tracks.sort((a, b) => (a.IndexNumber || 999) - (b.IndexNumber || 999));
+      const first = sorted[0];
+      result.push({
+        name,
+        albumArtist: first.AlbumArtist || first.Artists?.join(", ") || "Unknown Artist",
+        artistItems: first.ArtistItems,
+        tracks: sorted,
+        trackCount: sorted.length,
+        id: name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "untitled",
+      });
+    }
+
+    if (unknown.length > 0) {
+      result.push({
+        name: "Unknown Album",
+        albumArtist: "Various Artists",
+        tracks: unknown,
+        trackCount: unknown.length,
+        id: "__unknown__",
+      });
+    }
+
+    const sb = sortBy(), so = sortOrder();
+    if (sb === "SortName" || sb === "name") {
+      result.sort((a, b) => so === "Ascending" ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
+    } else if (sb === "ProductionYear" || sb === "PremiereDate" || sb === "DateCreated") {
+      result.sort((a, b) => {
+        const dateA = a.tracks[0]?.PremiereDate || a.tracks[0]?.DateCreated || "";
+        const dateB = b.tracks[0]?.PremiereDate || b.tracks[0]?.DateCreated || "";
+        return so === "Ascending" ? dateA.localeCompare(dateB) : dateB.localeCompare(dateA);
+      });
+    } else if (sb === "PlayCount") {
+      result.sort((a, b) => so === "Ascending"
+        ? (a.tracks.reduce((s, t) => s + (t.PlayCount || 0), 0) - b.tracks.reduce((s, t) => s + (t.PlayCount || 0), 0))
+        : (b.tracks.reduce((s, t) => s + (t.PlayCount || 0), 0) - a.tracks.reduce((s, t) => s + (t.PlayCount || 0), 0)));
+    } else if (sb === "CommunityRating") {
+      result.sort((a, b) => so === "Ascending"
+        ? ((a.tracks[0]?.CommunityRating || 0) - (b.tracks[0]?.CommunityRating || 0))
+        : ((b.tracks[0]?.CommunityRating || 0) - (a.tracks[0]?.CommunityRating || 0)));
+    } else if (sb === "trackCount") {
+      result.sort((a, b) => so === "Ascending" ? a.trackCount - b.trackCount : b.trackCount - a.trackCount);
+    }
+    return result;
+  });
+
+  // Albums tab: real albums (ChildCount > 1) from paginated albums
+  const albumsTabAlbums = createMemo(() =>
+    albumScroll.items().filter((a) => (a.ChildCount ?? 1) > 1)
+  );
+
+  // Real singles: tracks from single-track albums (ChildCount === 1)
+  const [realSinglesTracks, setRealSinglesTracks] = createSignal<Audio[]>([]);
+  let processedSingles = new Set<string>();
+
+  createEffect(() => {
+    const albums = albumScroll.items();
+    const newSingles = albums.filter((a) => (a.ChildCount ?? 1) === 1 && !processedSingles.has(a.Id));
+    if (newSingles.length === 0) return;
+    for (const a of newSingles) processedSingles.add(a.Id);
+    (async () => {
+      const batchSize = 15;
+      const results: Audio[] = [];
+      for (let i = 0; i < newSingles.length; i += batchSize) {
+        const batch = newSingles.slice(i, i + batchSize);
+        const tracks = await Promise.all(batch.map((a) => fetchAlbumTracks(a.Id)));
+        results.push(...tracks.flat());
+      }
+      setRealSinglesTracks((prev) => [...prev, ...results]);
+    })();
+  });
+
+  // Virtual singles: orphan tracks that form single-track virtual albums
+  const virtualSingles = createMemo(() =>
+    virtualAlbums()
+      .filter((v) => v.trackCount === 1)
+      .map((v) => v.tracks[0])
+      .filter(Boolean)
+  );
+
+  // All singles combined
+  const allSingles = createMemo(() => {
+    const real = realSinglesTracks();
+    const virtual = virtualSingles();
+    return [...real, ...virtual];
+  });
+
+  // Playlist sorting (local data, unchanged)
+  const sortedPlaylists = createMemo(() => {
+    const items = playlists;
+    if (activeTab() !== "playlists") return items;
+    const sb = sortBy();
+    const so = sortOrder();
+    const sorted = [...items];
+    if (sb === "name") {
+      sorted.sort((a, b) => so === "Ascending" ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
+    } else if (sb === "trackCount") {
+      sorted.sort((a, b) => so === "Ascending" ? a.trackIds.length - b.trackIds.length : b.trackIds.length - a.trackIds.length);
+    }
+    return sorted;
+  });
+
+  // Albums grid: merges real albums + multi-track virtual albums, with sort
+  const albumsGridItems = createMemo(() => {
+    if (activeTab() !== "albums") return [];
+    const real = albumsTabAlbums();
+    const virtual = virtualAlbums().filter((v) => v.trackCount > 1);
+    type GridItem =
+      | { kind: "real"; data: MusicAlbum }
+      | { kind: "virtual"; data: VirtualAlbum };
+    const items: GridItem[] = [
+      ...real.map((a) => ({ kind: "real" as const, data: a })),
+      ...virtual.map((v) => ({ kind: "virtual" as const, data: v })),
+    ];
+    const so = sortOrder();
+    if (sortBy() === "ProductionYear" || sortBy() === "PremiereDate" || sortBy() === "DateCreated") {
+      items.sort((a, b) => {
+        const dateA = a.kind === "real" ? (a.data.PremiereDate || a.data.DateCreated || "") : (a.data.tracks[0]?.PremiereDate || a.data.tracks[0]?.DateCreated || "");
+        const dateB = b.kind === "real" ? (b.data.PremiereDate || b.data.DateCreated || "") : (b.data.tracks[0]?.PremiereDate || b.data.tracks[0]?.DateCreated || "");
+        return so === "Ascending" ? dateA.localeCompare(dateB) : dateB.localeCompare(dateA);
+      });
+    } else if (sortBy() === "PlayCount") {
+      items.sort((a, b) => {
+        const ca = a.kind === "real" ? (a.data.PlayCount || 0) : a.data.tracks.reduce((s, t) => s + (t.PlayCount || 0), 0);
+        const cb = b.kind === "real" ? (b.data.PlayCount || 0) : b.data.tracks.reduce((s, t) => s + (t.PlayCount || 0), 0);
+        return so === "Ascending" ? ca - cb : cb - ca;
+      });
+    } else if (sortBy() === "CommunityRating") {
+      items.sort((a, b) => {
+        const ra = a.kind === "real" ? (a.data.CommunityRating || 0) : (a.data.tracks[0]?.CommunityRating || 0);
+        const rb = b.kind === "real" ? (b.data.CommunityRating || 0) : (b.data.tracks[0]?.CommunityRating || 0);
+        return so === "Ascending" ? ra - rb : rb - ra;
+      });
+    } else {
+      items.sort((a, b) => {
+        const an = a.kind === "real" ? a.data.Name : a.data.name;
+        const bn = b.kind === "real" ? b.data.Name : b.data.name;
+        return so === "Ascending" ? an.localeCompare(bn) : bn.localeCompare(an);
+      });
+    }
+    return items;
+  });
+
+  const hasError = () => genresRes.error;
+
+  function setTab(tab: AlbumTab) {
+    setSearchParams({ tab, genre: undefined, sortBy: undefined, sortOrder: undefined });
+  }
+
+  function toggleGenre(name: string) {
+    if (selectedGenre() === name) {
+      setSearchParams({ tab: activeTab(), genre: undefined });
+    } else {
+      setSearchParams({ tab: activeTab(), genre: name });
+    }
+  }
+
+  function playSingle(track: Audio, index: number) {
+    const tracks = allSingles();
+    if (!tracks.length) return;
+    player.play(track, tracks, index);
+  }
+
+  let sentinelRef: HTMLDivElement | undefined;
 
   onMount(() => {
     setHeaderTitle("Library");
     setHeaderSubtitle("");
     setHeaderImageUrl("");
     setShowHeaderExtra(false);
+    function handleClickOutside(e: MouseEvent) {
+      if (sortOpen() && sortRef && !sortRef.contains(e.target as Node)) {
+        setSortOpen(false);
+      }
+    }
+    document.addEventListener("click", handleClickOutside);
+    onCleanup(() => document.removeEventListener("click", handleClickOutside));
   });
-
-  let sentinelRef: HTMLDivElement | undefined;
 
   onMount(() => {
     if (!sentinelRef) return;
@@ -76,77 +392,6 @@ export default function Library() {
       setShowHeaderExtra(false);
     });
   });
-
-  const hasError = () => genresRes.error || albumsRes.error || artistsRes.error || singlesRes.error || virtualRes.error;
-
-  const filteredAlbums = createMemo(() => {
-    const all = albums();
-    if (!all) return [];
-    if (activeTab() === "albums") {
-      return all.filter((a) => (a.ChildCount ?? 1) > 1);
-    }
-    if (activeTab() === "singles") {
-      return all.filter((a) => (a.ChildCount ?? 1) === 1);
-    }
-    return [];
-  });
-
-  const virtualSinglesTracks = createMemo(() => {
-    const va = virtualAlbums();
-    if (!va) return [];
-    return va
-      .filter((v) => v.trackCount === 1)
-      .map((v) => v.tracks[0])
-      .filter(Boolean);
-  });
-
-  const allSinglesTracks = createMemo(() => {
-    const real = singlesTracks();
-    const virtual = virtualSinglesTracks();
-    if (!real) return virtual || [];
-    return [...real, ...virtual];
-  });
-
-  const albumsGridItems = createMemo(() => {
-    if (activeTab() !== "albums") return [];
-    const real = filteredAlbums();
-    const virtual = (virtualAlbums() || []).filter((v) => v.trackCount > 1);
-    type GridItem =
-      | { kind: "real"; data: MusicAlbum }
-      | { kind: "virtual"; data: VirtualAlbum };
-    const items: GridItem[] = [
-      ...real.map((a) => ({ kind: "real" as const, data: a })),
-      ...virtual.map((v) => ({ kind: "virtual" as const, data: v })),
-    ];
-    items.sort((a, b) => {
-      const an = a.kind === "real" ? a.data.Name : a.data.name;
-      const bn = b.kind === "real" ? b.data.Name : b.data.name;
-      return an.localeCompare(bn);
-    });
-    return items;
-  });
-
-  const albumScroll = useInfiniteScroll(albumsGridItems, 50);
-  const artistScroll = useInfiniteScroll(() => artists() || [], 50);
-  const singlesScroll = useInfiniteScroll(allSinglesTracks, 50);
-
-  function setTab(tab: AlbumTab) {
-    setSearchParams({ tab, genre: selectedGenre() || undefined });
-  }
-
-  function toggleGenre(name: string) {
-    if (selectedGenre() === name) {
-      setSearchParams({ tab: activeTab(), genre: undefined });
-    } else {
-      setSearchParams({ tab: activeTab(), genre: name });
-    }
-  }
-
-  function playSingle(track: Audio, index: number) {
-    const tracks = allSinglesTracks();
-    if (!tracks.length) return;
-    player.play(track, tracks, index);
-  }
 
   return (
     <div class="pt-32 px-6 pb-2">
@@ -199,13 +444,49 @@ export default function Library() {
         <p class="text-[#888] text-xs mb-4">
           Filtering by: <span class="text-white font-medium">{selectedGenre()}</span>
           <button
-            onClick={() => setSearchParams({ tab: activeTab(), genre: undefined })}
+            onClick={() => setSearchParams({ tab: activeTab(), genre: undefined, sortBy: sortBy(), sortOrder: sortOrder() })}
             class="ml-2 text-[#555] hover:text-white underline text-xs cursor-pointer"
           >
             Clear
           </button>
         </p>
       )}
+
+      {/* Sort dropdown */}
+      <div ref={sortRef} class="relative mb-4">
+        <button
+          onClick={() => setSortOpen(!sortOpen())}
+          class="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-[#1a1a1a] text-[#888] hover:text-white transition-colors cursor-pointer"
+        >
+          <ArrowUpDown size={12} />
+          {currentSortLabel()} {sortOrder() === "Ascending" ? "↑" : "↓"}
+        </button>
+
+        <div
+          classList={{
+            "visible opacity-100 scale-100": sortOpen(),
+            "invisible opacity-0 scale-95 pointer-events-none": !sortOpen(),
+          }}
+          class="absolute left-0 top-full mt-1 w-44 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-xl z-50 py-1 transition-all duration-200 ease-out origin-top-left"
+        >
+          <div class="px-3 py-1.5 text-[10px] text-[#555] uppercase tracking-wider">Sort by</div>
+          <For each={SORT_OPTIONS[activeTab()] || []}>
+            {(opt) => (
+              <button
+                onClick={() => handleSortClick(opt.value)}
+                class="w-full flex items-center justify-between px-3 py-2 text-sm text-[#e0e0e0] hover:bg-[#242424] transition-colors text-left cursor-pointer"
+              >
+                <span classList={{ "text-white font-medium": sortBy() === opt.value }}>
+                  {opt.label}
+                </span>
+                {sortBy() === opt.value && (
+                  <span class="text-[#888] text-xs">{sortOrder() === "Ascending" ? "↑" : "↓"}</span>
+                )}
+              </button>
+            )}
+          </For>
+        </div>
+      </div>
 
       <Show when={hasError()}>
         <div class="flex items-center gap-2 mb-4 px-3 py-2 bg-red-900/20 border border-red-900/30 rounded-lg text-xs text-red-400">
@@ -215,22 +496,23 @@ export default function Library() {
       </Show>
 
       {activeTab() === "artists" && (() => {
-        const items = artistScroll.visible();
         return (
           <div>
-            <Show when={artistsRes.loading}>
+            <Show when={artistScroll.initializing()}>
               <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                 <For each={[0,0,0,0,0,0,0,0,0,0,0,0]}>
                   {() => <div class="animate-pulse bg-[#2a2a2a] rounded-lg" style="aspect-ratio: 1" />}
                 </For>
               </div>
             </Show>
-            <Show when={!artistsRes.loading}>
-              {items.length > 0 ? (
+            <Show when={!artistScroll.initializing()}>
+              {artistScroll.items().length > 0 ? (
               <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                {items.map((artist) => (
-                  <ArtistCard artist={artist} />
-                ))}
+                <For each={artistScroll.items()}>
+                  {(artist) => (
+                    <ArtistCard artist={artist} />
+                  )}
+                </For>
               </div>
             ) : (
               <p class="text-[#888] text-sm mt-8 text-center">No artists found</p>
@@ -242,20 +524,19 @@ export default function Library() {
       })()}
 
       {activeTab() === "albums" && (() => {
-        const items = albumScroll.visible();
         return (
           <div>
-            <Show when={albumsRes.loading}>
+            <Show when={albumScroll.initializing()}>
               <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                 <For each={[0,0,0,0,0,0,0,0,0,0,0,0]}>
                   {() => <div class="animate-pulse bg-[#2a2a2a] rounded-lg" style="aspect-ratio: 1" />}
                 </For>
               </div>
             </Show>
-            <Show when={!albumsRes.loading}>
-              {items.length > 0 ? (
+            <Show when={!albumScroll.initializing()}>
+              {albumsGridItems().length > 0 ? (
               <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                <For each={items}>
+                <For each={albumsGridItems()}>
                   {(item) => item.kind === "real" ? (
                     <AlbumCard album={item.data} />
                   ) : (
@@ -291,11 +572,10 @@ export default function Library() {
       })()}
 
       {activeTab() === "singles" && (() => {
-        const combined = allSinglesTracks();
-        const visibleTracks = singlesScroll.visible();
+        const combined = allSingles();
         return (
           <div>
-            {singlesTracks.loading || virtualRes.loading ? (
+            {audioScroll.initializing() ? (
               <div class="space-y-2">
                 {Array.from({ length: 8 }).map(() => (
                   <div class="flex items-center gap-3 h-14 bg-[#1a1a1a] rounded animate-pulse px-2">
@@ -310,7 +590,7 @@ export default function Library() {
             ) : combined.length > 0 ? (
               isMobile() ? (
                 <div class="space-y-1">
-                  {visibleTracks.map((track) => {
+                  {combined.map((track) => {
                     const globalIndex = combined.indexOf(track);
                     const isActive = state.isPlaying
                       && state.queue[state.queueIndex]?.Id === track.Id;
@@ -337,7 +617,7 @@ export default function Library() {
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleTracks.map((track) => {
+                  {combined.map((track) => {
                     const globalIndex = combined.indexOf(track);
                     const isActive = state.isPlaying
                       && state.queue[state.queueIndex]?.Id === track.Id;
@@ -345,7 +625,7 @@ export default function Library() {
                     const hasCover = track.AlbumPrimaryImageTag || track.ImageTags?.Primary;
                     return (
                       <tr
-                        class={`group cursor-pointer transition-colors ${
+                        class={`${audioScroll.page() > 1 ? "animate-scale-fade-in " : ""}group cursor-pointer transition-colors ${
                           isActive
                             ? "bg-[#1db954]/10 text-[#1db954]"
                             : "text-[#e0e0e0] hover:bg-[#1a1a1a]"
@@ -359,11 +639,25 @@ export default function Library() {
                           </span>
                         </td>
                         <td class="py-2 px-2">
-                          <div class="w-8 h-8 rounded-md bg-[#333] overflow-hidden flex items-center justify-center flex-shrink-0">
+                          <div class="w-8 h-8 rounded-md overflow-hidden flex-shrink-0 relative">
+                            <div class="absolute inset-0 bg-[#2a2a2a] animate-pulse rounded-md" />
                             {hasCover ? (
-                              <img src={getImageUrl(coverUrl, "Primary", 60)} alt="" class="w-full h-full object-cover" />
+                              <img
+                                src={getImageUrl(coverUrl, "Primary", 60)}
+                                alt=""
+                                class="w-full h-full object-cover relative"
+                                style="opacity: 0"
+                                onLoad={(e) => {
+                                  const img = e.currentTarget;
+                                  img.style.opacity = "1";
+                                  const skeleton = img.parentElement?.firstElementChild as HTMLElement | null;
+                                  if (skeleton) skeleton.style.display = "none";
+                                }}
+                              />
                             ) : (
-                              <Music size={14} class="text-[#555]" />
+                              <div class="w-full h-full flex items-center justify-center relative bg-[#333] rounded-md">
+                                <Music size={14} class="text-[#555]" />
+                              </div>
                             )}
                           </div>
                         </td>
@@ -394,7 +688,7 @@ export default function Library() {
             ) : (
               <p class="text-[#888] text-sm mt-8 text-center">No singles found</p>
             )}
-            {singlesScroll.hasMore() && <div ref={singlesScroll.sentinelRef} class="h-4" />}
+            {audioScroll.hasMore() && <div ref={audioScroll.sentinelRef} class="h-4" />}
           </div>
         );
       })()}
@@ -402,7 +696,7 @@ export default function Library() {
 
 
       {activeTab() === "playlists" && (() => {
-        const items = playlists;
+        const items = sortedPlaylists();
         return (
           <div>
             {hydrated() && items.length > 0 ? (

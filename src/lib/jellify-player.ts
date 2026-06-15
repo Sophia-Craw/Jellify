@@ -17,6 +17,7 @@ export interface PlayerState {
   repeatMode: number;
   currentTime: number;
   duration: number;
+  shuffleEnabled: boolean;
 }
 
 export interface PermissionResult {
@@ -39,6 +40,7 @@ export interface JellifyPlayerPlugin {
   addToQueue(params: { items: QueueItem[]; atIndex?: number }): Promise<void>;
   removeFromQueue(params: { index: number }): Promise<void>;
   reorderQueue(params: { fromIndex: number; toIndex: number }): Promise<void>;
+  setShuffle(params: { enabled: boolean }): Promise<void>;
   requestBatteryOptimization(): Promise<{ exempt: boolean }>;
   requestPermissions?: () => Promise<PermissionResult>;
   checkPermissions?: () => Promise<PermissionResult>;

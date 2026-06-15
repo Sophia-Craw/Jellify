@@ -157,15 +157,13 @@ function currentQueueForPlay(track: Audio, queue?: Audio[], startIndex?: number)
 } {
   const newQueue = queue ?? [track];
   let idx = startIndex ?? newQueue.indexOf(track);
-  if (stateRef && stateRef.shuffle && newQueue.length > 1) {
-    const shuffled = shuffleArray(newQueue, idx);
-    return { newQueue: shuffled, idx };
-  }
   return { newQueue, idx };
 }
 
 var stateRef: PlayerState | undefined;
 var setStateRef: any;
+let shuffleCleanup: (() => Promise<void>) | undefined;
+let shuffleListenerPromise: Promise<void> | undefined;
 
 export function PlayerProvider(props: { children: JSX.Element }) {
   const [showVisualizer, setShowVisualizer] = createSignal(false);
@@ -192,6 +190,21 @@ export function PlayerProvider(props: { children: JSX.Element }) {
     return state.queue[state.queueIndex];
   }
 
+  async function maybeSetUpShuffleListener() {
+    if (shuffleCleanup) return;
+    if (shuffleListenerPromise) return shuffleListenerPromise;
+    shuffleListenerPromise = (async () => {
+      const mod = await import("~/lib/jellify-player");
+      shuffleCleanup = await mod.onPlayerStateChange((ps) => {
+        if (ps.shuffleEnabled !== state.shuffle) {
+          toggleShuffle();
+        }
+      });
+      shuffleListenerPromise = undefined;
+    })();
+    return shuffleListenerPromise;
+  }
+
   // ── play / queue ────────────────────────────────────────
 
   async function play(track: Audio, queue?: Audio[], startIndex?: number) {
@@ -204,6 +217,8 @@ export function PlayerProvider(props: { children: JSX.Element }) {
     await ensureNativeBackend();
 
     if (nativeBackend === "jellify" && jellifyPlayer) {
+      maybeSetUpShuffleListener();
+
       try {
         const items = newQueue.map((t) => ({
           id: t.Id,
@@ -554,6 +569,9 @@ export function PlayerProvider(props: { children: JSX.Element }) {
       setState("queue", newQueue);
       setState("queueIndex", newIdx);
       setState("shuffle", false);
+      if (nativeBackend === "jellify" && jellifyPlayer?.isJellifyPlayerAvailable()) {
+        await jellifyPlayer.default.setShuffle({ enabled: false });
+      }
       await syncNativeQueue(newQueue, newIdx);
     } else {
       setState("originalQueue", state.queue);
@@ -564,6 +582,9 @@ export function PlayerProvider(props: { children: JSX.Element }) {
         setState("queueIndex", state.queueIndex);
       }
       setState("shuffle", true);
+      if (nativeBackend === "jellify" && jellifyPlayer?.isJellifyPlayerAvailable()) {
+        await jellifyPlayer.default.setShuffle({ enabled: true });
+      }
       await syncNativeQueue(newQueue, state.queueIndex);
     }
   }
