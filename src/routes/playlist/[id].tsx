@@ -160,15 +160,7 @@ export default function PlaylistPage() {
   const p = playlist;
 
   return (
-    <><div class="relative overflow-hidden pt-32 px-6 pb-2">
-      {/* Blurred cover art backdrop */}
-      <Show when={p()?.coverDataUrl}>
-        <div aria-hidden="true" class="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
-          <div class="absolute top-0 left-0 right-0 h-[50vh] bg-cover bg-center blur-[60px] opacity-30" style={{ "background-image": `url(${p()!.coverDataUrl})` }} />
-          <div class="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-transparent" />
-        </div>
-      </Show>
-
+    <><div class="relative overflow-hidden pt-32 md:pt-12 px-6 pb-2">
       {!hydrated() ? (
         <div class="animate-pulse space-y-4">
           <div class="w-24 h-4 bg-[#2a2a2a] rounded" />
@@ -185,11 +177,14 @@ export default function PlaylistPage() {
         <>
           <div class="flex flex-col sm:flex-row gap-6 mb-8 items-center sm:items-start text-center sm:text-left">
             <div
-              class="w-48 h-48 rounded-lg shadow-lg flex items-center justify-center flex-shrink-0 overflow-hidden"
+              class="w-48 h-48 rounded-lg shadow-lg flex items-center justify-center flex-shrink-0 overflow-hidden relative"
               style={{ "background-color": p()!.color }}
             >
               {p()!.coverDataUrl ? (
-                <img src={p()!.coverDataUrl} alt={p()!.name} class="w-full h-full object-cover" />
+                <>
+                  <div aria-hidden="true" class="absolute inset-0 bg-cover bg-center blur-[60px] opacity-30" style={{ "background-image": `url(${p()!.coverDataUrl})` }} />
+                  <img src={p()!.coverDataUrl} alt={p()!.name} class="w-full h-full object-cover relative" />
+                </>
               ) : (
                 <Music size={64} class="text-white/60" />
               )}

@@ -13,6 +13,9 @@ android/.gradle/
 android/local.properties
 capacitor.settings.json
 
+# Electron bin
+/dist-electron
+
 # Environment
 .env
 .env*.local

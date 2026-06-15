@@ -394,7 +394,7 @@ export default function Library() {
   });
 
   return (
-    <div class="pt-32 px-6 pb-2">
+    <div class="pt-32 md:pt-12 px-6 pb-2">
       <h1 class="text-2xl font-bold text-white mb-6">Library</h1>
       <div ref={sentinelRef} class="h-px" />
 
@@ -590,19 +590,18 @@ export default function Library() {
             ) : combined.length > 0 ? (
               isMobile() ? (
                 <div class="space-y-1">
-                  {combined.map((track) => {
-                    const globalIndex = combined.indexOf(track);
-                    const isActive = state.isPlaying
-                      && state.queue[state.queueIndex]?.Id === track.Id;
+                  <For each={combined}>{(track, index) => {
+                    const isActive = () => player.state.isPlaying
+                      && player.state.queue[player.state.queueIndex]?.Id === track.Id;
                     return (
                       <TrackRowCard
                         track={track}
-                        index={globalIndex}
-                        isActive={isActive}
-                        onClick={() => playSingle(track, globalIndex)}
+                        index={index()}
+                        isActive={isActive()}
+                        onClick={() => playSingle(track, index())}
                       />
                     );
-                  })}
+                  }}</For>
                 </div>
               ) : (
               <table class="w-full text-sm">
@@ -617,23 +616,22 @@ export default function Library() {
                   </tr>
                 </thead>
                 <tbody>
-                  {combined.map((track) => {
-                    const globalIndex = combined.indexOf(track);
-                    const isActive = state.isPlaying
-                      && state.queue[state.queueIndex]?.Id === track.Id;
+                  <For each={combined}>{(track, index) => {
+                    const isActive = () => player.state.isPlaying
+                      && player.state.queue[player.state.queueIndex]?.Id === track.Id;
                     const coverUrl = track.AlbumId || track.Id;
                     const hasCover = track.AlbumPrimaryImageTag || track.ImageTags?.Primary;
                     return (
                       <tr
                         class={`${audioScroll.page() > 1 ? "animate-scale-fade-in " : ""}group cursor-pointer transition-colors ${
-                          isActive
+                          isActive()
                             ? "bg-[#1db954]/10 text-[#1db954]"
                             : "text-[#e0e0e0] hover:bg-[#1a1a1a]"
                         }`}
-                        onClick={() => playSingle(track, globalIndex)}
+                        onClick={() => playSingle(track, index())}
                       >
                         <td class="py-2 px-2 text-xs">
-                          <span class="group-hover:hidden">{globalIndex + 1}</span>
+                          <span class="group-hover:hidden">{index() + 1}</span>
                           <span class="hidden group-hover:inline-flex items-center text-white">
                             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
                           </span>
@@ -676,12 +674,12 @@ export default function Library() {
                         </td>
                         <td class="py-2 px-2">
                           <div onClick={(e) => e.stopPropagation()}>
-                            <TrackMenu track={track} queue={combined} queueIndex={globalIndex} />
+                            <TrackMenu track={track} queue={combined} queueIndex={index()} />
                           </div>
                         </td>
                       </tr>
                     );
-                  })}
+                  }}</For>
                 </tbody>
               </table>
               )

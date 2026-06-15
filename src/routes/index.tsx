@@ -40,7 +40,7 @@ export default function Home() {
   });
 
   return (
-    <div class="pt-32 px-6 pb-2">
+    <div class="pt-32 md:pt-12 px-6 pb-2">
       <Show when={hasError()}>
         <div class="flex items-center gap-2 mb-4 px-3 py-2 bg-red-900/20 border border-red-900/30 rounded-lg text-xs text-red-400">
           <AlertTriangle size={14} />

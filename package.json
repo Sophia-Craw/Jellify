@@ -1,5 +1,9 @@
 {
-  "name": "example-with-tailwindcss",
+  "name": "jellify",
+  "description": "Jellify - A Jellyfin music client",
+  "author": "Jellify",
+  "version": "1.0.0",
+  "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
     "dev": "vinxi dev",
@@ -9,7 +13,29 @@
     "electron": "electron electron/main.cjs",
     "electron:build": "npm run build && npm run electron",
     "build:cap": "CAPACITOR=true vinxi build && find .output/public -name '*.gz' -o -name '*.br' | xargs rm -f && npx cap sync",
-    "cap:open": "npx cap open android"
+    "cap:open": "npx cap open android",
+    "dist:mac": "npm run build && npx electron-builder --mac --config"
+  },
+  "build": {
+    "appId": "com.jellify.app",
+    "productName": "Jellify",
+    "icon": "assets/icon.png",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      ".output/**/*",
+      "electron/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.music"
+    }
   },
   "dependencies": {
     "@capacitor-community/keep-awake": "^8.0.1",

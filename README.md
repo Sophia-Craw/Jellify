@@ -45,19 +45,17 @@ npm i
 
 
 ## Web
-
-Run live dev server:
 ```bash
 npm run dev
 ```
 
 ## Electron
 ```bash
+npm run build
 npm run electron
 ```
 
 ## Capacitor (Mobile)
-
 ```bash
 npm run build:cap
 npm run cap:open

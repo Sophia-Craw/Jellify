@@ -2,6 +2,21 @@ import { createContext, useContext, createSignal, onMount, type JSX } from "soli
 import { setAuthCache, invalidateAlbumCache } from "~/lib/jellyfin";
 
 const STORAGE_KEY = "jusic_auth";
+const DEVICE_ID_KEY = "jusic_device_id";
+
+function getDeviceId(): string {
+  if (typeof document === "undefined") return "jusic-server";
+  try {
+    let id = localStorage.getItem(DEVICE_ID_KEY);
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem(DEVICE_ID_KEY, id);
+    }
+    return id;
+  } catch {
+    return crypto.randomUUID();
+  }
+}
 
 interface AuthData {
   serverUrl: string;
@@ -59,7 +74,7 @@ export function AuthProvider(props: { children: JSX.Element }) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Emby-Authorization": `MediaBrowser Client="Jusic", Device="Browser", DeviceId="jusic", Version="1.0.0"`,
+        "X-Emby-Authorization": `MediaBrowser Client="Jusic", Device="Browser", DeviceId="${getDeviceId()}", Version="1.0.0"`,
       },
       body: JSON.stringify({ Username: username, Pw: password }),
     });

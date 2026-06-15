@@ -87,15 +87,7 @@ export default function VirtualAlbumPage() {
   });
 
   return (
-    <div class="relative overflow-hidden pt-32 px-6 pb-2">
-      {/* Blurred cover art backdrop */}
-      <Show when={hasCover()}>
-        <div aria-hidden="true" class="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
-          <div class="absolute top-0 left-0 right-0 h-[50vh] bg-cover bg-center blur-[60px] opacity-30" style={{ "background-image": `url(${getImageUrl(firstTrack()!.Id, "Primary", 300)})` }} />
-          <div class="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-transparent" />
-        </div>
-      </Show>
-
+    <div class="relative overflow-hidden pt-32 md:pt-12 px-6 pb-2">
       <Show when={!orphans() || orphans.loading} fallback={
         <Show when={album()} fallback={
           <p class="text-[#888] text-sm mt-8 text-center">Album not found</p>
@@ -107,11 +99,14 @@ export default function VirtualAlbumPage() {
                 <Music size={48} />
               </div>
             }>
-              <img
-                src={getImageUrl(firstTrack()!.Id, "Primary", 300)}
-                alt={album()!.name}
-                class="w-48 h-48 rounded-lg object-cover shadow-lg flex-shrink-0"
-              />
+              <div class="relative w-48 h-48 flex-shrink-0">
+                <div aria-hidden="true" class="absolute inset-0 bg-cover bg-center blur-[60px] opacity-30 rounded-lg" style={{ "background-image": `url(${getImageUrl(firstTrack()!.Id, "Primary", 300)})` }} />
+                <img
+                  src={getImageUrl(firstTrack()!.Id, "Primary", 300)}
+                  alt={album()!.name}
+                  class="w-48 h-48 rounded-lg object-cover shadow-lg relative"
+                />
+              </div>
             </Show>
             <div class="flex flex-col justify-end items-center sm:items-start">
               <p class="text-xs text-[#888] uppercase tracking-wider mb-1">

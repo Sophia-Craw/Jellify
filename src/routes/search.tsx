@@ -67,7 +67,7 @@ export default function SearchPage() {
   const showDefault = () => !searchTerm().trim();
 
   return (
-    <div class="pt-32 px-6 pb-2">
+    <div class="pt-32 md:pt-12 px-6 pb-2">
       <form onSubmit={handleSubmit} class="relative mb-6">
         <Search size={18} class="absolute left-3 top-1/2 -translate-y-1/2 text-[#555]" />
       <input
