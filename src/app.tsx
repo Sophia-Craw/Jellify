@@ -128,7 +128,7 @@ function AppLayout(props: { children: any }) {
             >
               <button
                 onClick={() => window.history.back()}
-                class="w-9 h-9 flex items-center justify-center text-white hover:text-[#1db954] transition-colors cursor-pointer"
+                class="w-9 h-9 flex items-center justify-center text-white hover:text-[#1db954] transition-all duration-150 cursor-pointer active:scale-90"
               >
                 <ChevronLeft size={22} />
               </button>
@@ -159,7 +159,7 @@ function AppLayout(props: { children: any }) {
               </div>
               <button
                 onClick={() => setShowProfileSheet(true)}
-                class="w-8 h-8 rounded-full overflow-hidden border border-[#2a2a2a] hover:border-[#1db954] transition-colors cursor-pointer"
+                class="w-8 h-8 rounded-full overflow-hidden border border-[#2a2a2a] hover:border-[#1db954] transition-all duration-150 cursor-pointer active:scale-90"
               >
                 <img
                   src={`${auth()!.serverUrl}/Users/${auth()!.userId}/Images/Primary?api_key=${auth()!.accessToken}&quality=90`}
@@ -194,13 +194,13 @@ function AppLayout(props: { children: any }) {
                   <div class="flex items-center gap-2">
                     <button
                       onClick={() => window.history.back()}
-                      class="w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center text-white transition-colors cursor-pointer"
+                      class="w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center text-white transition-all duration-150 cursor-pointer active:scale-90"
                     >
                       <ChevronLeft size={18} />
                     </button>
                     <button
                       onClick={() => window.history.forward()}
-                      class="w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center text-white transition-colors cursor-pointer"
+                      class="w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center text-white transition-all duration-150 cursor-pointer active:scale-90"
                     >
                       <ChevronRight size={18} />
                     </button>
@@ -208,7 +208,7 @@ function AppLayout(props: { children: any }) {
                   {isMacElectron ? (
                     <button
                       onClick={() => navigate("/search")}
-                      class="h-8 w-28 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-start gap-1.5 text-white transition-colors cursor-pointer px-3"
+                      class="h-8 w-28 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-start gap-1.5 text-white transition-all duration-150 cursor-pointer px-3 active:scale-[0.97]"
                       title="Search"
                     >
                       <Search size={16} />

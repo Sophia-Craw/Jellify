@@ -19,7 +19,7 @@ export default function MobileNavBar() {
         return (
           <A
             href={item.href}
-            class="flex flex-col items-center gap-0.5 pt-1 px-3 transition-colors"
+            class="flex flex-col items-center gap-0.5 pt-1 px-3 transition-all duration-150 active:scale-90"
             classList={{ "text-[#1db954]": isActive, "text-[#888]": !isActive }}
           >
             <item.icon size={20} />

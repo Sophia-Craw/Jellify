@@ -402,7 +402,7 @@ export default function Library() {
         {TABS.map((tab) => (
           <button
             onClick={() => setTab(tab.key)}
-            class={`px-4 py-2 text-sm rounded-md transition-colors cursor-pointer ${
+            class={`px-4 py-2 text-sm rounded-md transition-all duration-150 cursor-pointer active:scale-[0.97] ${
               activeTab() === tab.key
                 ? "bg-white text-black font-medium"
                 : "text-[#888] hover:text-white"
@@ -426,7 +426,7 @@ export default function Library() {
               {(genre) => (
                 <button
                   onClick={() => toggleGenre(genre.Name)}
-                  class={`px-3 py-1 text-xs rounded-full whitespace-nowrap transition-colors cursor-pointer ${
+                  class={`px-3 py-1 text-xs rounded-full whitespace-nowrap transition-all duration-150 cursor-pointer active:scale-[0.95] ${
                     selectedGenre() === genre.Name
                       ? "bg-[#333] text-white font-medium"
                       : "bg-[#121212] text-[#888] hover:text-white hover:bg-[#1a1a1a]"
@@ -445,7 +445,7 @@ export default function Library() {
           Filtering by: <span class="text-white font-medium">{selectedGenre()}</span>
           <button
             onClick={() => setSearchParams({ tab: activeTab(), genre: undefined, sortBy: sortBy(), sortOrder: sortOrder() })}
-            class="ml-2 text-[#555] hover:text-white underline text-xs cursor-pointer"
+            class="ml-2 text-[#555] hover:text-white underline text-xs cursor-pointer transition-all duration-150 active:scale-95"
           >
             Clear
           </button>
@@ -456,7 +456,7 @@ export default function Library() {
       <div ref={sortRef} class="relative mb-4">
         <button
           onClick={() => setSortOpen(!sortOpen())}
-          class="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-[#1a1a1a] text-[#888] hover:text-white transition-colors cursor-pointer"
+          class="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-[#1a1a1a] text-[#888] hover:text-white transition-all duration-150 cursor-pointer active:scale-[0.97]"
         >
           <ArrowUpDown size={12} />
           {currentSortLabel()} {sortOrder() === "Ascending" ? "↑" : "↓"}
@@ -474,7 +474,7 @@ export default function Library() {
             {(opt) => (
               <button
                 onClick={() => handleSortClick(opt.value)}
-                class="w-full flex items-center justify-between px-3 py-2 text-sm text-[#e0e0e0] hover:bg-[#242424] transition-colors text-left cursor-pointer"
+                class="w-full flex items-center justify-between px-3 py-2 text-sm text-[#e0e0e0] hover:bg-[#242424] transition-all duration-150 text-left cursor-pointer active:scale-[0.97]"
               >
                 <span classList={{ "text-white font-medium": sortBy() === opt.value }}>
                   {opt.label}

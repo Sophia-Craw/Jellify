@@ -111,7 +111,7 @@ export default function Sidebar() {
       <div class="flex items-center h-14 border-b border-[#2a2a2a]" classList={{ "justify-center": collapsed(), "px-3": !collapsed() }}>
         <button
           onClick={handleCollapse}
-          class="text-[#888] hover:text-white transition-colors p-1 cursor-pointer"
+          class="text-[#888] hover:text-white transition-all duration-150 p-1 cursor-pointer active:scale-90"
           title={collapsed() ? "Expand sidebar" : "Collapse sidebar"}
         >
           {collapsed() ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
@@ -125,7 +125,7 @@ export default function Sidebar() {
           return (
             <A
               href={item.href}
-              class={`flex items-center h-10 rounded-md transition-colors ${
+              class={`flex items-center h-10 rounded-md transition-all duration-150 active:scale-[0.97] ${
                 collapsed() ? "justify-center w-full" : "px-3 mx-1"
               } ${isActive ? "bg-[#1a1a1a] text-white" : "text-[#888] hover:text-white hover:bg-[#1a1a1a]"}`}
             >
@@ -140,7 +140,7 @@ export default function Sidebar() {
           {!collapsed() && (
             <button
               onClick={toggleReorder}
-              class="p-1 rounded cursor-pointer transition-colors"
+              class="p-1 rounded cursor-pointer transition-all duration-150 active:scale-90"
               classList={{ "bg-[#1db954] text-white": reorderMode(), "text-[#555] hover:text-white": !reorderMode() }}
               title={reorderMode() ? "Done reordering" : "Reorder playlists"}
             >
@@ -154,9 +154,9 @@ export default function Sidebar() {
         {hydrated() && !auth() && (
           <A
             href="/auth"
-            class={`flex items-center h-9 rounded-md transition-colors text-[#888] hover:text-white hover:bg-[#1a1a1a] ${
-              collapsed() ? "justify-center w-full" : "px-3 mx-1"
-            }`}
+              class={`flex items-center h-9 rounded-md transition-all duration-150 text-[#888] hover:text-white hover:bg-[#1a1a1a] active:scale-[0.97] ${
+                collapsed() ? "justify-center w-full" : "px-3 mx-1"
+              }`}
           >
             <span class="w-6 flex items-center justify-center"><LogIn size={16} /></span>
             {!collapsed() && <span class="ml-3 text-sm">Sign in</span>}
@@ -164,7 +164,7 @@ export default function Sidebar() {
         )}
         <button
           onClick={handleCreate}
-          class={`flex items-center text-sm text-[#888] hover:text-white hover:bg-[#1a1a1a] transition-colors rounded-md cursor-pointer ${
+          class={`flex items-center text-sm text-[#888] hover:text-white hover:bg-[#1a1a1a] transition-all duration-150 rounded-md cursor-pointer active:scale-[0.97] ${
             collapsed()
               ? "justify-center w-full py-2"
               : "gap-2 w-full px-3 py-1.5"
@@ -180,7 +180,7 @@ export default function Sidebar() {
               return (
                 <div
                   data-playlist-id={p.id}
-                  class={`relative flex items-center h-9 rounded-md transition-colors group ${
+                  class={`relative flex items-center h-9 rounded-md transition-all duration-150 group ${
                     collapsed() ? "justify-center w-full" : "mx-1 px-3"
                   }`}
                   classList={{ "bg-[#1a1a1a]": isActive && !reorderMode() }}
@@ -208,7 +208,7 @@ export default function Sidebar() {
                       {!collapsed() && (
                         <button
                           onClick={(e) => { e.stopPropagation(); setEditingId(p.id); }}
-                          class="text-[#555] hover:text-white transition-colors px-1 opacity-0 group-hover:opacity-100 cursor-pointer flex-shrink-0"
+                          class="text-[#555] hover:text-white transition-all duration-150 px-1 opacity-0 group-hover:opacity-100 cursor-pointer flex-shrink-0 active:scale-90"
                           title="Edit playlist"
                         >
                           <Pencil size={12} />
@@ -228,13 +228,13 @@ export default function Sidebar() {
           {!collapsed() && (
             <div class="flex items-center justify-between mb-1">
               <span class="text-xs text-[#555] truncate max-w-[120px]">{auth()?.userId}</span>
-              <button onClick={logout} class="text-[#555] hover:text-white transition-colors cursor-pointer" title="Sign out">
+              <button onClick={logout} class="text-[#555] hover:text-white transition-all duration-150 cursor-pointer active:scale-90" title="Sign out">
                 <LogOut size={14} />
               </button>
             </div>
           )}
           {collapsed() && (
-            <button onClick={logout} class="text-[#555] hover:text-white transition-colors cursor-pointer p-1 mx-auto block w-full" title="Sign out">
+            <button onClick={logout} class="text-[#555] hover:text-white transition-all duration-150 cursor-pointer p-1 mx-auto block w-full active:scale-90" title="Sign out">
               <LogOut size={16} class="mx-auto" />
             </button>
           )}

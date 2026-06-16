@@ -194,7 +194,7 @@ export default function ArtistPage() {
               {allSingles().length > 0 && (
                 <button
                   onClick={playDiscography}
-                  class="w-12 h-12 rounded-full bg-[#1db954] text-black flex items-center justify-center hover:scale-105 transition-transform shrink-0 cursor-pointer"
+                  class="w-12 h-12 rounded-full bg-[#1db954] text-black flex items-center justify-center hover:scale-105 transition-transform duration-150 shrink-0 cursor-pointer active:scale-90"
                 >
                   <Play size={24} fill="currentColor" />
                 </button>
@@ -331,7 +331,7 @@ export default function ArtistPage() {
                 const hasCover = track.AlbumPrimaryImageTag || track.ImageTags?.Primary;
                 return (
                   <tr
-                    class={`group cursor-pointer transition-colors ${
+                    class={`group cursor-pointer transition-all duration-150 active:scale-[0.99] ${
                       isActive
                         ? "bg-[#1db954]/10 text-[#1db954]"
                         : "text-[#e0e0e0] hover:bg-[#1a1a1a]"
@@ -398,7 +398,7 @@ export default function ArtistPage() {
                   {isLong && (
                     <button
                       onClick={() => setShowFullBio(!showFullBio())}
-                      class="text-xs text-[#1db954] hover:underline cursor-pointer"
+                      class="text-xs text-[#1db954] hover:underline transition-all duration-150 cursor-pointer active:scale-95"
                     >
                       {showFullBio() ? "Show less" : "Show more"}
                     </button>
@@ -408,7 +408,7 @@ export default function ArtistPage() {
                       href={wikiData()!.content_urls.desktop.page}
                       target="_blank"
                       rel="noopener noreferrer"
-                      class="text-xs text-[#888] hover:text-white hover:underline inline-flex items-center gap-1"
+                      class="text-xs text-[#888] hover:text-white hover:underline inline-flex items-center gap-1 transition-all duration-150 active:scale-95"
                     >
                       Read more on Wikipedia <ExternalLink size={10} />
                     </A>

@@ -57,7 +57,7 @@ export default function MobileProfileSheet(props: Props) {
         <div class="border-t border-[#2a2a2a]">
           <button
             onClick={() => { logout(); close(); }}
-            class="w-full flex items-center gap-3 px-5 py-3.5 text-sm text-red-400 hover:bg-[#242424] transition-colors cursor-pointer"
+            class="w-full flex items-center gap-3 px-5 py-3.5 text-sm text-red-400 hover:bg-[#242424] transition-all duration-150 cursor-pointer active:scale-[0.97]"
           >
             <LogOut size={18} />
             Sign out

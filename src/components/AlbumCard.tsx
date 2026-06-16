@@ -22,7 +22,7 @@ export default function AlbumCard(props: {
   return (
     <A
       href={linkHref}
-      class="group block bg-[#1a1a1a] rounded-lg p-3 hover:bg-[#242424] transition-colors"
+      class="group block bg-[#1a1a1a] rounded-lg p-3 hover:bg-[#242424] transition-all duration-200 active:scale-[0.97]"
     >
       <div class="relative aspect-square mb-3 rounded overflow-hidden bg-[#242424]">
         {hasImage() ? (

@@ -74,6 +74,25 @@ export default function MobilePlayer() {
     setIsDragging(true);
   }
 
+  function animateCover(goingNext: boolean) {
+    if (coverAnimating()) return;
+    const screenW = window.innerWidth;
+    setCoverAnimating(true);
+    setCoverX(goingNext ? -screenW : screenW);
+    setTimeout(() => {
+      setCoverAnimating(false);
+      setCoverX(goingNext ? screenW : -screenW);
+      requestAnimationFrame(() => {
+        if (goingNext) player.next(); else player.prev();
+        requestAnimationFrame(() => {
+          setCoverAnimating(true);
+          setCoverX(0);
+          setTimeout(() => setCoverAnimating(false), 150);
+        });
+      });
+    }, 150);
+  }
+
   function handleCoverTouchStart(e: TouchEvent) {
     if (coverAnimating()) return;
     coverStartX = e.touches[0].clientX;
@@ -90,22 +109,7 @@ export default function MobilePlayer() {
     if (coverAnimating()) return;
     const diff = e.changedTouches[0].clientX - coverStartX;
     if (Math.abs(diff) > 60) {
-      const goingNext = diff < 0;
-      const screenW = window.innerWidth;
-      setCoverAnimating(true);
-      setCoverX(goingNext ? -screenW : screenW);
-      setTimeout(() => {
-        setCoverAnimating(false);
-        setCoverX(goingNext ? screenW : -screenW);
-        requestAnimationFrame(() => {
-          if (goingNext) player.next(); else player.prev();
-          requestAnimationFrame(() => {
-            setCoverAnimating(true);
-            setCoverX(0);
-            setTimeout(() => setCoverAnimating(false), 250);
-          });
-        });
-      }, 250);
+      animateCover(diff < 0);
     } else {
       setCoverX(0);
     }
@@ -189,7 +193,7 @@ export default function MobilePlayer() {
             </div>
             <button
               onClick={(e) => { e.stopPropagation(); player.togglePlay(); }}
-              class="w-9 h-9 rounded-full bg-white text-black flex items-center justify-center flex-shrink-0 cursor-pointer"
+              class="w-9 h-9 rounded-full bg-white text-black flex items-center justify-center flex-shrink-0 cursor-pointer transition-transform duration-150 active:scale-90"
             >
               {state.isPlaying ? <Pause size={16} fill="currentColor" /> : <Play size={16} class="ml-0.5" fill="currentColor" />}
             </button>
@@ -215,13 +219,13 @@ export default function MobilePlayer() {
           <div class="flex items-center justify-between px-4 pt-2 pb-1 shrink-0">
             <button
               onClick={() => setPlayerExpanded(false)}
-              class="w-9 h-9 flex items-center justify-center text-[#888] hover:text-white transition-colors cursor-pointer"
+              class="w-9 h-9 flex items-center justify-center text-[#888] hover:text-white transition-all duration-150 cursor-pointer active:scale-90"
             >
               <ChevronDown size={24} />
             </button>
             <button
               onClick={() => setShowTrackOptions(true)}
-              class="w-9 h-9 flex items-center justify-center text-[#888] hover:text-white transition-colors cursor-pointer"
+              class="w-9 h-9 flex items-center justify-center text-[#888] hover:text-white transition-all duration-150 cursor-pointer active:scale-90"
             >
               <MoreHorizontal size={22} />
             </button>
@@ -240,7 +244,7 @@ export default function MobilePlayer() {
                 class="w-full"
                 style={{
                   transform: `translateX(${coverX()}px)`,
-                  transition: coverAnimating() ? "transform 250ms ease-out" : "none"
+                  transition: coverAnimating() ? "transform 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94)" : "none"
                 }}
               >
               {trackHasImage() ? (
@@ -298,31 +302,31 @@ export default function MobilePlayer() {
             <div class="flex items-center justify-center gap-6 mt-4 w-full max-w-[350px]">
               <button
                 onClick={() => player.toggleShuffle()}
-                class={`transition-colors cursor-pointer ${state.shuffle ? "text-[#1db954]" : "text-white"}`}
+                class={`transition-all duration-150 cursor-pointer active:scale-90 ${state.shuffle ? "text-[#1db954]" : "text-white"}`}
               >
                 <Shuffle size={22} />
               </button>
               <button
-                onClick={() => player.prev()}
-                class="text-white transition-colors cursor-pointer"
+                onClick={() => animateCover(false)}
+                class="text-white transition-all duration-150 cursor-pointer active:scale-90"
               >
                 <SkipBack size={26} fill="currentColor" />
               </button>
               <button
                 onClick={() => player.togglePlay()}
-                class="w-14 h-14 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 transition-transform cursor-pointer"
+                class="w-14 h-14 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 transition-transform duration-150 cursor-pointer active:scale-90"
               >
                 {state.isPlaying ? <Pause size={26} fill="currentColor" /> : <Play size={26} class="ml-1" fill="currentColor" />}
               </button>
               <button
-                onClick={() => player.next()}
-                class="text-white transition-colors cursor-pointer"
+                onClick={() => animateCover(true)}
+                class="text-white transition-all duration-150 cursor-pointer active:scale-90"
               >
                 <SkipForward size={26} fill="currentColor" />
               </button>
               <button
                 onClick={() => player.toggleRepeat()}
-                class={`transition-colors cursor-pointer ${state.repeat !== "off" ? "text-[#1db954]" : "text-white"}`}
+                class={`transition-all duration-150 cursor-pointer active:scale-90 ${state.repeat !== "off" ? "text-[#1db954]" : "text-white"}`}
               >
                 {state.repeat === "one" ? <Repeat1 size={22} /> : <Repeat size={22} />}
               </button>
@@ -337,7 +341,7 @@ export default function MobilePlayer() {
             </div>
             <button
               onClick={toggleQueue}
-              class="text-white hover:text-white transition-colors relative cursor-pointer ml-4"
+              class="text-white hover:text-white transition-all duration-150 relative cursor-pointer ml-4 active:scale-90"
             >
               <ListMusic size={22} />
               {state.queue.length > 0 && (
@@ -372,7 +376,7 @@ export default function MobilePlayer() {
               <p class="text-sm font-semibold text-white">Queue</p>
               <button
                 onClick={(e) => { e.stopPropagation(); setShowSaveQueue(true); }}
-                class="text-xs text-[#888] hover:text-[#1db954] transition-colors flex items-center gap-1 cursor-pointer"
+                class="text-xs text-[#888] hover:text-[#1db954] transition-all duration-150 flex items-center gap-1 cursor-pointer active:scale-90"
               >
                 <Plus size={14} />
                 Save
@@ -380,7 +384,7 @@ export default function MobilePlayer() {
             </div>
             {state.queue.map((t, i) => (
               <div
-                class={`flex items-center gap-3 px-4 py-3 text-sm transition-colors cursor-pointer ${
+                class={`flex items-center gap-3 px-4 py-3 text-sm transition-all duration-150 cursor-pointer active:scale-[0.97] ${
                   i === state.queueIndex
                     ? "bg-[#1db954]/10 text-[#1db954]"
                     : "text-[#888] hover:bg-[#242424] hover:text-white"

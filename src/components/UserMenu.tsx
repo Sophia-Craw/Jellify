@@ -32,7 +32,7 @@ export default function UserMenu(props: { compact?: boolean }) {
     <div ref={ref} class="relative">
       <button
         onClick={() => setOpen(!open())}
-        class={`${size} rounded-full overflow-hidden ${border} border-[#2a2a2a] hover:border-[#1db954] transition-colors cursor-pointer`}
+        class={`${size} rounded-full overflow-hidden ${border} border-[#2a2a2a] hover:border-[#1db954] transition-all duration-150 cursor-pointer active:scale-90`}
         title="User menu"
       >
         <img src={imgSrc} alt="User" class="w-full h-full object-cover" />
@@ -42,7 +42,7 @@ export default function UserMenu(props: { compact?: boolean }) {
         <div class="absolute right-0 top-full mt-2 w-44 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-xl z-[60] py-1">
           <button
             onClick={() => { logout(); setOpen(false); }}
-            class="flex items-center gap-2 w-full px-3 py-2 text-sm text-[#ccc] hover:text-white hover:bg-[#2a2a2a] transition-colors cursor-pointer"
+            class="flex items-center gap-2 w-full px-3 py-2 text-sm text-[#ccc] hover:text-white hover:bg-[#2a2a2a] transition-all duration-150 cursor-pointer active:scale-[0.97]"
           >
             <LogOut size={16} />
             Sign out

@@ -69,14 +69,14 @@ export default function TrackBottomSheet(props: Props) {
         <div class="border-t border-[#2a2a2a]">
           <button
             onClick={handleAddToQueue}
-            class="w-full flex items-center gap-3 px-5 py-3.5 text-sm text-[#e0e0e0] hover:bg-[#242424] transition-colors cursor-pointer"
+            class="w-full flex items-center gap-3 px-5 py-3.5 text-sm text-[#e0e0e0] hover:bg-[#242424] transition-all duration-150 cursor-pointer active:scale-[0.97]"
           >
             <ListMusic size={18} />
             Add to queue
           </button>
           <button
             onClick={() => { setShowAddSheet(true); }}
-            class="w-full flex items-center gap-3 px-5 py-3.5 text-sm text-[#e0e0e0] hover:bg-[#242424] transition-colors cursor-pointer"
+            class="w-full flex items-center gap-3 px-5 py-3.5 text-sm text-[#e0e0e0] hover:bg-[#242424] transition-all duration-150 cursor-pointer active:scale-[0.97]"
           >
             <Plus size={18} />
             Add to playlist
@@ -84,7 +84,7 @@ export default function TrackBottomSheet(props: Props) {
           {props.playlistId && (
             <button
               onClick={handleRemoveFromPlaylist}
-              class="w-full flex items-center gap-3 px-5 py-3.5 text-sm text-red-400 hover:bg-[#242424] transition-colors cursor-pointer"
+              class="w-full flex items-center gap-3 px-5 py-3.5 text-sm text-red-400 hover:bg-[#242424] transition-all duration-150 cursor-pointer active:scale-[0.97]"
             >
               <Trash2 size={18} />
               Remove from playlist

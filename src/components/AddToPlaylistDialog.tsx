@@ -33,7 +33,7 @@ export default function AddToPlaylistDialog(props: Props) {
       <div class="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-xl w-80 max-h-96 flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div class="flex items-center justify-between p-3 border-b border-[#2a2a2a]">
           <p class="text-sm font-semibold text-white">{isQueue() ? "Save queue to playlist" : "Add to playlist"}</p>
-          <button onClick={props.onClose} class="text-[#888] hover:text-white transition-colors cursor-pointer">
+          <button onClick={props.onClose} class="text-[#888] hover:text-white transition-all duration-150 cursor-pointer active:scale-90">
             <X size={16} />
           </button>
         </div>
@@ -49,7 +49,7 @@ export default function AddToPlaylistDialog(props: Props) {
           <button
             onClick={handleCreate}
             disabled={!newName().trim()}
-            class="bg-[#1db954] text-black px-2 py-1.5 rounded text-sm font-medium hover:bg-[#1ed760] transition-colors disabled:opacity-50 cursor-pointer"
+            class="bg-[#1db954] text-black px-2 py-1.5 rounded text-sm font-medium hover:bg-[#1ed760] transition-all duration-150 disabled:opacity-50 cursor-pointer active:scale-90"
           >
             <Plus size={16} />
           </button>
@@ -62,7 +62,7 @@ export default function AddToPlaylistDialog(props: Props) {
           {playlists.map((p) => (
             <button
               onClick={() => handleSelect(p.id)}
-              class="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-white hover:bg-[#242424] transition-colors text-left cursor-pointer"
+              class="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-white hover:bg-[#242424] transition-all duration-150 text-left cursor-pointer active:scale-[0.97]"
             >
               <div class="w-8 h-8 rounded flex items-center justify-center flex-shrink-0 overflow-hidden" style={{ "background-color": p.color }}>
                 {p.coverDataUrl ? (

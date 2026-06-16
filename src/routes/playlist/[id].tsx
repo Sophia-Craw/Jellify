@@ -202,21 +202,21 @@ export default function PlaylistPage() {
                 <div class="flex items-center justify-center sm:justify-start gap-3 mt-4">
                   <button
                     onClick={() => setShowEdit(true)}
-                    class="p-2 rounded-full bg-[#2a2a2a] text-[#888] hover:text-white hover:bg-[#333] transition-colors cursor-pointer"
+                    class="p-2 rounded-full bg-[#2a2a2a] text-[#888] hover:text-white hover:bg-[#333] transition-all duration-150 cursor-pointer active:scale-90"
                     title="Edit playlist"
                   >
                     <Pencil size={18} />
                   </button>
                   <button
                     onClick={() => player.play(tracks()![0], tracks()!, 0)}
-                    class="w-10 h-10 rounded-full bg-[#1db954] text-black flex items-center justify-center hover:scale-105 transition-transform cursor-pointer"
+                    class="w-10 h-10 rounded-full bg-[#1db954] text-black flex items-center justify-center hover:scale-105 transition-transform duration-150 cursor-pointer active:scale-90"
                     title="Play all"
                   >
                     <Play size={20} fill="currentColor" />
                   </button>
                   <button
                     onClick={() => setReorderMode(!reorderMode())}
-                    class={`p-2 rounded-full transition-colors cursor-pointer ${
+                    class={`p-2 rounded-full transition-all duration-150 cursor-pointer active:scale-90 ${
                       reorderMode() 
                         ? "bg-[#1db954] text-black" 
                         : "bg-[#2a2a2a] text-[#888] hover:text-white hover:bg-[#333]"
@@ -227,7 +227,7 @@ export default function PlaylistPage() {
                   </button>
                   <button
                     onClick={() => player.appendToQueue(tracks()!)}
-                    class="p-2 rounded-full bg-[#2a2a2a] text-[#888] hover:text-white hover:bg-[#333] transition-colors cursor-pointer"
+                    class="p-2 rounded-full bg-[#2a2a2a] text-[#888] hover:text-white hover:bg-[#333] transition-all duration-150 cursor-pointer active:scale-90"
                     title="Add playlist to queue"
                   >
                     <ListMusic size={18} />
@@ -248,7 +248,7 @@ export default function PlaylistPage() {
                       <button
                         type="button"
                         data-track-id={track.Id}
-                        class="flex items-center gap-2 px-2 py-2 rounded-lg transition-colors w-full text-left cursor-pointer"
+                        class="flex items-center gap-2 px-2 py-2 rounded-lg transition-all duration-150 w-full text-left cursor-pointer active:scale-[0.97]"
                         classList={{
                           "bg-[#1db954]/10": isActive,
                           "hover:bg-[#1a1a1a]": !isActive,
@@ -307,8 +307,8 @@ export default function PlaylistPage() {
                 {tracks()!.map((track, index) => (
                     <tr
                       data-track-id={track.Id}
-                      class={`group transition-colors ${
-                        reorderMode() ? "cursor-default" : "cursor-pointer"
+                      class={`group transition-all duration-150 ${
+                        reorderMode() ? "cursor-default" : "cursor-pointer active:scale-[0.99]"
                       } ${
                         player.state.isPlaying && currentTrackId() === track.Id
                           ? "bg-[#1db954]/10 text-[#1db954]"

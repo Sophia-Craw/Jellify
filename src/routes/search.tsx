@@ -84,7 +84,7 @@ export default function SearchPage() {
         </kbd>
       </Show>
       <Show when={query()}>
-        <button type="button" onClick={clearSearch} class="absolute right-3 top-1/2 -translate-y-1/2 text-[#555] hover:text-white transition-colors cursor-pointer">
+        <button type="button" onClick={clearSearch} class="absolute right-3 top-1/2 -translate-y-1/2 text-[#555] hover:text-white transition-all duration-150 cursor-pointer active:scale-90">
           <X size={16} />
         </button>
       </Show>
@@ -109,7 +109,7 @@ export default function SearchPage() {
                 {(r) => (
                   <button
                     onClick={() => { setQuery(r.term); doSearch(r.term); }}
-                    class="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#888] bg-[#1a1a1a] hover:bg-[#242424] hover:text-white rounded-full transition-colors cursor-pointer"
+                    class="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#888] bg-[#1a1a1a] hover:bg-[#242424] hover:text-white rounded-full transition-all duration-150 cursor-pointer active:scale-[0.95]"
                   >
                     <Clock size={12} />
                     {r.term}
@@ -156,7 +156,7 @@ function SearchResultsView(props: { results: SearchHintResult }) {
               {(a) => (
                 <a
                   href={`/artist/${a.ItemId}`}
-                  class="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm text-white hover:bg-[#1a1a1a]"
+                  class="flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-150 text-sm text-white hover:bg-[#1a1a1a] active:scale-[0.97]"
                 >
                   <div class="w-8 h-8 rounded-full bg-[#333] overflow-hidden flex-shrink-0">
                     {a.PrimaryImageTag && (
@@ -179,7 +179,7 @@ function SearchResultsView(props: { results: SearchHintResult }) {
               {(a) => (
                 <a
                   href={`/album/${a.ItemId}`}
-                  class="flex items-center gap-2 px-3 py-2 bg-[#1a1a1a] hover:bg-[#242424] rounded-lg transition-colors text-sm text-white"
+                  class="flex items-center gap-2 px-3 py-2 bg-[#1a1a1a] hover:bg-[#242424] rounded-lg transition-all duration-150 text-sm text-white active:scale-[0.97]"
                 >
                   <div class="w-8 h-8 rounded bg-[#333] overflow-hidden flex-shrink-0 flex items-center justify-center">
                     {a.PrimaryImageTag ? (
@@ -239,7 +239,7 @@ function SearchResultsView(props: { results: SearchHintResult }) {
                   }>
                     <a
                       href={t.AlbumId ? `/album/${t.AlbumId}` : `/virtual-album/${makeSlug(t.Album!)}`}
-                      class={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors cursor-pointer group text-sm ${isActive() ? "bg-[#1db954]/10 text-[#1db954]" : "hover:bg-[#1a1a1a]"}`}
+                      class={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 cursor-pointer group text-sm active:scale-[0.97] ${isActive() ? "bg-[#1db954]/10 text-[#1db954]" : "hover:bg-[#1a1a1a]"}`}
                     >
                       {inner}
                     </a>
@@ -271,7 +271,7 @@ function GenreSection(props: { genres: Genre[]; loaded: boolean }) {
                 return (
                   <a
                     href={`/library?tab=albums&genre=${encodeURIComponent(genre.Name)}`}
-                    class="px-3 py-2 rounded text-sm font-medium text-white transition-transform hover:scale-105 text-left truncate"
+                    class="px-3 py-2 rounded text-sm font-medium text-white transition-transform duration-150 hover:scale-105 active:scale-95 text-left truncate"
                     style={{
                       "background-color": color,
                       "background-image": "linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.35))",

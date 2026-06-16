@@ -44,7 +44,7 @@ export default function TrackMenu(props: Props) {
     <div ref={menuRef} class="relative">
       <button
         onClick={(e) => { e.stopPropagation(); setOpen(!open()); }}
-        class="text-[#888] hover:text-white transition-colors px-1 cursor-pointer"
+        class="text-[#888] hover:text-white transition-all duration-150 px-1 cursor-pointer active:scale-90"
         title="More"
       >
         <MoreHorizontal size={16} />
@@ -54,14 +54,14 @@ export default function TrackMenu(props: Props) {
         <div class="absolute right-0 top-full mt-1 w-44 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-xl z-[60] py-1" onClick={(e) => e.stopPropagation()}>
           <button
             onClick={handleAddToQueue}
-            class="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#e0e0e0] hover:bg-[#242424] transition-colors text-left cursor-pointer"
+            class="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#e0e0e0] hover:bg-[#242424] transition-all duration-150 text-left cursor-pointer active:scale-[0.97]"
           >
             <ListMusic size={16} />
             Add to queue
           </button>
           <button
             onClick={() => { setOpen(false); setShowPlaylistDialog(true); }}
-            class="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#e0e0e0] hover:bg-[#242424] transition-colors text-left cursor-pointer"
+            class="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#e0e0e0] hover:bg-[#242424] transition-all duration-150 text-left cursor-pointer active:scale-[0.97]"
           >
             <Plus size={16} />
             Add to playlist
@@ -69,7 +69,7 @@ export default function TrackMenu(props: Props) {
           {props.playlistId && (
             <button
               onClick={handleRemoveFromPlaylist}
-              class="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-[#242424] transition-colors text-left cursor-pointer"
+              class="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-[#242424] transition-all duration-150 text-left cursor-pointer active:scale-[0.97]"
             >
               <Trash2 size={16} />
               Remove from playlist

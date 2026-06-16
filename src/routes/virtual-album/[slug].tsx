@@ -116,7 +116,7 @@ export default function VirtualAlbumPage() {
               {album()!.artistItems?.[0] ? (
                 <A
                   href={`/artist/${album()!.artistItems[0].Id}`}
-                  class="text-sm text-[#888] hover:text-white hover:underline transition-colors"
+                  class="text-sm text-[#888] hover:text-white hover:underline transition-all duration-150"
                 >
                   {album()!.albumArtist}
                 </A>
@@ -132,7 +132,7 @@ export default function VirtualAlbumPage() {
               {tracks().length > 0 && (
                 <button
                   onClick={() => player.appendToQueue(tracks())}
-                  class="mt-3 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#2a2a2a] text-xs text-[#888] hover:text-white hover:bg-[#333] transition-colors cursor-pointer"
+                  class="mt-3 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#2a2a2a] text-xs text-[#888] hover:text-white hover:bg-[#333] transition-all duration-150 cursor-pointer active:scale-90"
                   title="Add album to queue"
                 >
                   <ListMusic size={14} />
@@ -181,7 +181,7 @@ export default function VirtualAlbumPage() {
                     && state.queue[state.queueIndex]?.Id === track.Id;
                   return (
                     <tr
-                      class={`group cursor-pointer transition-colors ${
+                      class={`group cursor-pointer transition-all duration-150 active:scale-[0.99] ${
                         isActive
                           ? "bg-[#1db954]/10 text-[#1db954]"
                           : "text-[#e0e0e0] hover:bg-[#1a1a1a]"

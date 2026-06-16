@@ -54,7 +54,7 @@ export default function Home() {
         <section class="mb-8">
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-semibold text-white">Recently Added</h2>
-            <A href="/library?tab=albums" class="text-sm text-[#888] hover:text-white transition-colors">
+            <A href="/library?tab=albums" class="text-sm text-[#888] hover:text-white transition-all duration-150 active:scale-95 inline-block">
               Show all
             </A>
           </div>
@@ -79,7 +79,7 @@ export default function Home() {
         <section class="mb-8">
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-semibold text-white">Artists</h2>
-            <A href="/library?tab=artists" class="text-sm text-[#888] hover:text-white transition-colors">
+            <A href="/library?tab=artists" class="text-sm text-[#888] hover:text-white transition-all duration-150 active:scale-95 inline-block">
               Show all
             </A>
           </div>

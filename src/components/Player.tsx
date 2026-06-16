@@ -144,7 +144,7 @@ export default function Player() {
         <div class="flex items-center gap-4">
           <button
             onClick={() => player.toggleShuffle()}
-            class={`transition-colors cursor-pointer ${state.shuffle ? "text-[#1db954]" : "text-[#888] hover:text-white"}`}
+            class={`transition-all duration-150 cursor-pointer active:scale-90 ${state.shuffle ? "text-[#1db954]" : "text-[#888] hover:text-white"}`}
             title={`Shuffle: ${state.shuffle ? "on" : "off"}`}
           >
             <Shuffle size={18} />
@@ -152,7 +152,7 @@ export default function Player() {
 
           <button
             onClick={() => player.prev()}
-            class="text-[#888] hover:text-white transition-colors cursor-pointer"
+            class="text-[#888] hover:text-white transition-all duration-150 cursor-pointer active:scale-90"
             title="Previous"
           >
             <SkipBack size={20} fill="currentColor" />
@@ -160,7 +160,7 @@ export default function Player() {
 
           <button
             onClick={() => player.togglePlay()}
-            class="w-8 h-8 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 transition-transform cursor-pointer"
+            class="w-8 h-8 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 transition-transform duration-150 cursor-pointer active:scale-90"
             title={state.isPlaying ? "Pause" : "Play"}
           >
             {state.isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} class="ml-0.5" fill="currentColor" />}
@@ -168,7 +168,7 @@ export default function Player() {
 
           <button
             onClick={() => player.next()}
-            class="text-[#888] hover:text-white transition-colors cursor-pointer"
+            class="text-[#888] hover:text-white transition-all duration-150 cursor-pointer active:scale-90"
             title="Next"
           >
             <SkipForward size={20} fill="currentColor" />
@@ -176,7 +176,7 @@ export default function Player() {
 
           <button
             onClick={() => player.toggleRepeat()}
-            class={`transition-colors cursor-pointer ${state.repeat !== "off" ? "text-[#1db954]" : "text-[#888] hover:text-white"}`}
+            class={`transition-all duration-150 cursor-pointer active:scale-90 ${state.repeat !== "off" ? "text-[#1db954]" : "text-[#888] hover:text-white"}`}
             title={`Repeat: ${state.repeat}`}
           >
             {state.repeat === "one" ? <Repeat1 size={18} /> : <Repeat size={18} />}
@@ -205,7 +205,7 @@ export default function Player() {
       <div class="flex items-center justify-end w-1/4 gap-3">
         <button
           onClick={() => player.setShowVisualizer(!player.showVisualizer())}
-          class={`transition-colors cursor-pointer ${player.showVisualizer() ? "text-[#1db954]" : "text-[#888] hover:text-white"}`}
+          class={`transition-all duration-150 cursor-pointer active:scale-90 ${player.showVisualizer() ? "text-[#1db954]" : "text-[#888] hover:text-white"}`}
           title="Visualizer"
         >
           <Waves size={20} />
@@ -213,7 +213,7 @@ export default function Player() {
         <button
           ref={toggleRef}
           onClick={() => setShowQueue(!showQueue())}
-          class="text-[#888] hover:text-white transition-colors relative cursor-pointer"
+          class="text-[#888] hover:text-white transition-all duration-150 relative cursor-pointer active:scale-90"
           title="Queue"
         >
           <ListMusic size={20} />
@@ -246,7 +246,7 @@ export default function Player() {
             <div class="flex items-center gap-2">
               <button
                 onClick={() => setReorderQueueMode(!reorderQueueMode())}
-                class={`p-1 rounded transition-colors cursor-pointer ${
+                class={`p-1 rounded transition-all duration-150 cursor-pointer active:scale-90 ${
                   reorderQueueMode() 
                     ? "bg-[#1db954] text-black" 
                     : "text-[#888] hover:text-[#1db954]"
@@ -257,7 +257,7 @@ export default function Player() {
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); setShowSaveQueue(true); }}
-                class="flex items-center gap-1 text-xs text-[#888] hover:text-[#1db954] transition-colors cursor-pointer"
+                class="flex items-center gap-1 text-xs text-[#888] hover:text-[#1db954] transition-all duration-150 cursor-pointer active:scale-90"
               >
                 <Plus size={14} />
                 Save
@@ -268,8 +268,8 @@ export default function Player() {
             {state.queue.map((t, i) => (
               <div
                 data-queue-id={t.Id}
-                class={`flex items-center gap-2 px-3 py-2 text-sm transition-colors ${
-                  reorderQueueMode() ? "cursor-default" : "cursor-pointer"
+                class={`flex items-center gap-2 px-3 py-2 text-sm transition-all duration-150 ${
+                  reorderQueueMode() ? "cursor-default" : "cursor-pointer active:scale-[0.97]"
                 } ${
                   i === state.queueIndex
                     ? "bg-[#1db954]/10 text-[#1db954]"

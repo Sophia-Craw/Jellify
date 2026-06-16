@@ -87,7 +87,7 @@ export default function MobileCreatePlaylist(props: Props) {
       >
         <div class="flex items-center justify-between px-4 pt-4 pb-3 shrink-0">
           <p class="text-lg font-semibold text-white">{isPicker() ? "Add to playlist" : "Playlists"}</p>
-          <button onClick={close} class="w-8 h-8 flex items-center justify-center text-[#888] hover:text-white transition-colors cursor-pointer">
+          <button onClick={close} class="w-8 h-8 flex items-center justify-center text-[#888] hover:text-white transition-all duration-150 cursor-pointer active:scale-90">
             <X size={20} />
           </button>
         </div>
@@ -103,7 +103,7 @@ export default function MobileCreatePlaylist(props: Props) {
             <button
               onClick={handleCreate}
               disabled={!name().trim()}
-              class="w-10 h-10 rounded-full bg-[#1db954] text-black flex items-center justify-center hover:bg-[#1ed760] transition-colors disabled:opacity-50 disabled:hover:bg-[#1db954] cursor-pointer shrink-0"
+              class="w-10 h-10 rounded-full bg-[#1db954] text-black flex items-center justify-center hover:bg-[#1ed760] transition-all duration-150 disabled:opacity-50 disabled:hover:bg-[#1db954] cursor-pointer shrink-0 active:scale-90"
             >
               <Plus size={20} />
             </button>
@@ -116,7 +116,7 @@ export default function MobileCreatePlaylist(props: Props) {
             playlists.map((p) => (
               <div
                 class="flex items-center gap-3 py-2.5 group"
-                classList={{ "cursor-pointer hover:bg-[#242424] rounded-lg px-2 -mx-2 transition-colors": isPicker() }}
+                classList={{ "cursor-pointer hover:bg-[#242424] rounded-lg px-2 -mx-2 transition-all duration-150 active:scale-[0.97]": isPicker() }}
                 onClick={() => isPicker() && handleSelect(p)}
               >
                 <div
@@ -139,8 +139,8 @@ export default function MobileCreatePlaylist(props: Props) {
                       class="flex-1 bg-[#121212] text-white text-sm px-2 py-1.5 rounded border border-[#2a2a2a] outline-none focus:border-[#1db954]"
                       autoFocus
                     />
-                    <button onClick={saveEdit} class="text-xs text-[#1db954] font-medium cursor-pointer hover:underline">Save</button>
-                    <button onClick={() => setEditingId(null)} class="text-xs text-[#888] cursor-pointer hover:underline">Cancel</button>
+                    <button onClick={saveEdit} class="text-xs text-[#1db954] font-medium cursor-pointer hover:underline transition-colors active:scale-90">Save</button>
+                    <button onClick={() => setEditingId(null)} class="text-xs text-[#888] cursor-pointer hover:underline transition-colors active:scale-90">Cancel</button>
                   </div>
                 ) : (
                   <>
@@ -154,13 +154,13 @@ export default function MobileCreatePlaylist(props: Props) {
                       <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={(e) => { e.stopPropagation(); startEdit(p); }}
-                          class="text-[#555] hover:text-white transition-colors cursor-pointer"
+                          class="text-[#555] hover:text-white transition-all duration-150 cursor-pointer active:scale-90"
                         >
                           <ChevronRight size={16} />
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); handleDelete(p.id); }}
-                          class={`transition-colors cursor-pointer ${
+                          class={`transition-all duration-150 cursor-pointer active:scale-90 ${
                             deleteConfirmId() === p.id ? "text-red-400" : "text-[#555] hover:text-red-400"
                           }`}
                         >

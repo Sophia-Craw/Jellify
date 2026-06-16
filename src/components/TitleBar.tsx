@@ -46,19 +46,19 @@ export default function TitleBar() {
         <div class="flex h-full" style={{ "-webkit-app-region": "no-drag" as any }}>
           <button
             onClick={() => window.electronAPI?.minimize()}
-            class="w-10 h-full flex items-center justify-center text-[#888] hover:text-white hover:bg-[#1a1a1a] transition-colors cursor-pointer"
+            class="w-10 h-full flex items-center justify-center text-[#888] hover:text-white hover:bg-[#1a1a1a] transition-all duration-150 cursor-pointer active:scale-90"
           >
             <Minus size={14} />
           </button>
           <button
             onClick={handleMaximize}
-            class="w-10 h-full flex items-center justify-center text-[#888] hover:text-white hover:bg-[#1a1a1a] transition-colors cursor-pointer"
+            class="w-10 h-full flex items-center justify-center text-[#888] hover:text-white hover:bg-[#1a1a1a] transition-all duration-150 cursor-pointer active:scale-90"
           >
             <Square size={11} />
           </button>
           <button
             onClick={() => window.electronAPI?.close()}
-            class="w-10 h-full flex items-center justify-center text-[#888] hover:text-white hover:bg-red-600 transition-colors cursor-pointer"
+            class="w-10 h-full flex items-center justify-center text-[#888] hover:text-white hover:bg-red-600 transition-all duration-150 cursor-pointer active:scale-90"
           >
             <X size={14} />
           </button>

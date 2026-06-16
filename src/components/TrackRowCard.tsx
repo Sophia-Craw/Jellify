@@ -57,7 +57,7 @@ export default function TrackRowCard(props: Props) {
     <>
       <button
         type="button"
-        class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors select-none w-full text-left cursor-pointer active:scale-[0.97] active:opacity-80"
+        class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 select-none w-full text-left cursor-pointer active:scale-[0.97] active:opacity-80"
         classList={{
           "bg-[#1db954]/10": props.isActive,
           "hover:bg-[#1a1a1a]": true,

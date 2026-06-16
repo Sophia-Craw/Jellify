@@ -71,7 +71,7 @@ export default function PlaylistEditDialog(props: Props) {
         >
           <div class="flex items-center justify-between px-4 pt-4 pb-3 shrink-0">
             <p class="text-lg font-semibold text-white">Edit playlist</p>
-            <button onClick={close} class="w-8 h-8 flex items-center justify-center text-[#888] hover:text-white transition-colors cursor-pointer">
+            <button onClick={close} class="w-8 h-8 flex items-center justify-center text-[#888] hover:text-white transition-all duration-150 cursor-pointer active:scale-90">
               <X size={20} />
             </button>
           </div>
@@ -103,7 +103,7 @@ export default function PlaylistEditDialog(props: Props) {
             <div class="flex items-center justify-between pt-2">
               <button
                 onClick={handleDelete}
-                class={`flex items-center gap-1.5 text-xs transition-colors cursor-pointer ${
+                class={`flex items-center gap-1.5 text-xs transition-all duration-150 cursor-pointer active:scale-90 ${
                   deleteConfirm() ? "text-red-400" : "text-[#555] hover:text-red-400"
                 }`}
               >
@@ -113,7 +113,7 @@ export default function PlaylistEditDialog(props: Props) {
               <button
                 onClick={handleSave}
                 disabled={!name().trim()}
-                class="px-4 py-2 text-xs bg-[#1db954] text-black rounded-lg font-medium hover:bg-[#1ed760] transition-colors disabled:opacity-50 cursor-pointer"
+                class="px-4 py-2 text-xs bg-[#1db954] text-black rounded-lg font-medium hover:bg-[#1ed760] transition-all duration-150 disabled:opacity-50 cursor-pointer active:scale-[0.97]"
               >
                 Save
               </button>
@@ -131,7 +131,7 @@ export default function PlaylistEditDialog(props: Props) {
       <div class="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-xl w-80" onClick={(e) => e.stopPropagation()}>
         <div class="flex items-center justify-between p-3 border-b border-[#2a2a2a]">
           <p class="text-sm font-semibold text-white">Edit playlist</p>
-          <button onClick={close} class="text-[#888] hover:text-white transition-colors cursor-pointer">
+          <button onClick={close} class="text-[#888] hover:text-white transition-all duration-150 cursor-pointer active:scale-90">
             <X size={16} />
           </button>
         </div>
@@ -162,30 +162,30 @@ export default function PlaylistEditDialog(props: Props) {
         </div>
 
         <div class="flex items-center justify-between p-3 border-t border-[#2a2a2a]">
-          <button
-            onClick={handleDelete}
-            class={`flex items-center gap-1 text-xs transition-colors cursor-pointer ${
-              deleteConfirm() ? "text-red-400" : "text-[#555] hover:text-red-400"
-            }`}
-          >
-            <Trash2 size={14} />
-            {deleteConfirm() ? "Confirm delete?" : "Delete"}
-          </button>
-          <div class="flex gap-2">
             <button
-              onClick={close}
-              class="px-3 py-1.5 text-xs text-[#888] hover:text-white transition-colors cursor-pointer"
+              onClick={handleDelete}
+              class={`flex items-center gap-1 text-xs transition-all duration-150 cursor-pointer active:scale-90 ${
+                deleteConfirm() ? "text-red-400" : "text-[#555] hover:text-red-400"
+              }`}
             >
-              Cancel
+              <Trash2 size={14} />
+              {deleteConfirm() ? "Confirm delete?" : "Delete"}
             </button>
-            <button
-              onClick={handleSave}
-              disabled={!name().trim()}
-              class="px-3 py-1.5 text-xs bg-[#1db954] text-black rounded font-medium hover:bg-[#1ed760] transition-colors disabled:opacity-50 cursor-pointer"
-            >
-              Save
-            </button>
-          </div>
+            <div class="flex gap-2">
+              <button
+                onClick={close}
+                class="px-3 py-1.5 text-xs text-[#888] hover:text-white transition-all duration-150 cursor-pointer active:scale-90"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={!name().trim()}
+                class="px-3 py-1.5 text-xs bg-[#1db954] text-black rounded font-medium hover:bg-[#1ed760] transition-all duration-150 disabled:opacity-50 cursor-pointer active:scale-[0.97]"
+              >
+                Save
+              </button>
+            </div>
         </div>
       </div>
     </div>

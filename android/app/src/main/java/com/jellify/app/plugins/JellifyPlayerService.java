@@ -77,6 +77,7 @@ public class JellifyPlayerService extends MediaSessionService {
 
     private List<QueueItem> queue = new ArrayList<>();
     private int currentIndex = -1;
+    private boolean wasEnded = false;
     public static final int REPEAT_OFF = 0;
     public static final int REPEAT_ALL = 1;
     public static final int REPEAT_ONE = 2;
@@ -175,6 +176,13 @@ public class JellifyPlayerService extends MediaSessionService {
                     cancelBufferingTimeout();
                 }
 
+                if (playbackState == Player.STATE_ENDED) {
+                    wasEnded = true;
+                } else if (playbackState == Player.STATE_READY && wasEnded) {
+                    wasEnded = false;
+                    updateNotification();
+                }
+
                 fireStateChange();
             }
 
@@ -206,6 +214,7 @@ public class JellifyPlayerService extends MediaSessionService {
                 } else {
                     if (stallStartTime >= 0) {
                         Log.i(TAG, "Stall recovered");
+                        updateNotification();
                     }
                     stallStartTime = -1;
                 }
@@ -328,44 +337,26 @@ public class JellifyPlayerService extends MediaSessionService {
     }
 
     public void addToQueue(List<QueueItem> items, int atIndex) {
+        if (items.isEmpty()) return;
         if (atIndex < 0 || atIndex > queue.size()) {
             queue.addAll(items);
         } else {
             queue.addAll(atIndex, items);
         }
-        // Rebuild exoPlayer playlist
-        boolean wasPlaying = exoPlayer.getPlayWhenReady();
-        long pos = exoPlayer.getCurrentPosition();
-        int curIdx = exoPlayer.getCurrentMediaItemIndex();
-        exoPlayer.stop();
-        syncExoPlayerQueue();
-        exoPlayer.seekTo(curIdx, pos);
-        if (wasPlaying) exoPlayer.play();
+        for (int i = 0; i < items.size(); i++) {
+            int insertIdx = (atIndex < 0 || atIndex > queue.size() - items.size())
+                ? queue.size() - items.size() + i
+                : atIndex + i;
+            exoPlayer.addMediaItem(insertIdx, buildMediaItem(items.get(i)));
+        }
+        updateNotification();
     }
 
     public void removeFromQueue(int index) {
         if (index < 0 || index >= queue.size()) return;
         queue.remove(index);
-        boolean wasPlaying = exoPlayer.getPlayWhenReady();
-        int curIdx = exoPlayer.getCurrentMediaItemIndex();
-        long pos = exoPlayer.getCurrentPosition();
-        int newCurIdx = curIdx;
-        if (curIdx > index) {
-            newCurIdx = curIdx - 1;
-        } else if (curIdx == index) {
-            if (queue.isEmpty()) {
-                exoPlayer.stop();
-                currentIndex = -1;
-                updateNotification();
-                return;
-            }
-            newCurIdx = Math.min(curIdx, queue.size() - 1);
-        }
-        exoPlayer.stop();
-        syncExoPlayerQueue();
-        exoPlayer.seekTo(newCurIdx, pos);
-        currentIndex = newCurIdx;
-        if (wasPlaying) exoPlayer.play();
+        exoPlayer.removeMediaItem(index);
+        currentIndex = exoPlayer.getCurrentMediaItemIndex();
         updateNotification();
     }
 
@@ -375,20 +366,8 @@ public class JellifyPlayerService extends MediaSessionService {
         QueueItem item = queue.remove(fromIndex);
         queue.add(toIndex, item);
         boolean wasPlaying = exoPlayer.getPlayWhenReady();
-        int curIdx = exoPlayer.getCurrentMediaItemIndex();
-        long pos = exoPlayer.getCurrentPosition();
-        int newCurIdx = curIdx;
-        if (curIdx == fromIndex) {
-            newCurIdx = toIndex;
-        } else if (curIdx > fromIndex && curIdx <= toIndex) {
-            newCurIdx = curIdx - 1;
-        } else if (curIdx < fromIndex && curIdx >= toIndex) {
-            newCurIdx = curIdx + 1;
-        }
-        exoPlayer.stop();
-        syncExoPlayerQueue();
-        exoPlayer.seekTo(newCurIdx, pos);
-        currentIndex = newCurIdx;
+        exoPlayer.moveMediaItem(fromIndex, toIndex);
+        currentIndex = exoPlayer.getCurrentMediaItemIndex();
         if (wasPlaying) exoPlayer.play();
         updateNotification();
     }
@@ -519,78 +498,7 @@ public class JellifyPlayerService extends MediaSessionService {
     }
 
     private void updateNotification() {
-        startForeground(NOTIFICATION_ID, buildMediaStyleNotification());
         fireStateChange();
-    }
-
-    private Notification buildMediaStyleNotification() {
-        String title = "Jellify";
-        String artist = "";
-        String album = "";
-
-        MediaItem current = exoPlayer != null ? exoPlayer.getCurrentMediaItem() : null;
-        if (current != null) {
-            MediaMetadata meta = current.mediaMetadata;
-            if (meta.title != null) title = meta.title.toString();
-            if (meta.artist != null) artist = meta.artist.toString();
-            if (meta.albumTitle != null) album = meta.albumTitle.toString();
-        }
-
-        String packageName = getApplicationContext().getPackageName();
-        Intent contentIntent = getPackageManager().getLaunchIntentForPackage(packageName);
-        PendingIntent contentPendingIntent = PendingIntent.getActivity(
-            this, 0, contentIntent,
-            PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
-        );
-
-        int flags = PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT;
-
-        Intent prevIntent = new Intent(this, JellifyPlayerService.class).setAction(ACTION_PREV);
-        PendingIntent prevPendingIntent = PendingIntent.getService(
-            this, 1, prevIntent, flags
-        );
-
-        boolean playing = isPlaying();
-        Intent toggleIntent = new Intent(this, JellifyPlayerService.class)
-            .setAction(playing ? ACTION_PAUSE : ACTION_PLAY);
-        PendingIntent togglePendingIntent = PendingIntent.getService(
-            this, 2, toggleIntent, flags
-        );
-
-        Intent nextIntent = new Intent(this, JellifyPlayerService.class).setAction(ACTION_NEXT);
-        PendingIntent nextPendingIntent = PendingIntent.getService(
-            this, 3, nextIntent, flags
-        );
-
-        Intent shuffleIntent = new Intent(this, JellifyPlayerService.class).setAction(ACTION_TOGGLE_SHUFFLE);
-        PendingIntent shufflePendingIntent = PendingIntent.getService(
-            this, 4, shuffleIntent, flags
-        );
-
-        int shuffleIcon = R.drawable.ic_shuffle;
-
-        androidx.media.app.NotificationCompat.MediaStyle mediaStyle =
-            new androidx.media.app.NotificationCompat.MediaStyle()
-                .setShowActionsInCompactView(0, 1, 2);
-
-        return new NotificationCompat.Builder(this, PLAYBACK_CHANNEL_ID)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setSmallIcon(R.drawable.ic_notification_music)
-            .setContentTitle(title)
-            .setContentText(artist)
-            .setSubText(album)
-            .setContentIntent(contentPendingIntent)
-            .setOngoing(true)
-            .setStyle(mediaStyle)
-            .addAction(shuffleIcon, "Shuffle", shufflePendingIntent)
-            .addAction(android.R.drawable.ic_media_previous, "Previous", prevPendingIntent)
-            .addAction(
-                playing ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play,
-                playing ? "Pause" : "Play",
-                togglePendingIntent
-            )
-            .addAction(android.R.drawable.ic_media_next, "Next", nextPendingIntent)
-            .build();
     }
 
     private void createNotificationChannel() {

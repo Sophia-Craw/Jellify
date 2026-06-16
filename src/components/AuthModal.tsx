@@ -96,7 +96,7 @@ export default function AuthModal() {
               <button
                 onClick={testConnection}
                 disabled={testing() || !serverUrl().trim()}
-                class="w-full bg-[#1db954] hover:bg-[#1ed760] text-black font-medium text-sm py-2.5 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                class="w-full bg-[#1db954] hover:bg-[#1ed760] text-black font-medium text-sm py-2.5 rounded-lg transition-all duration-150 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer active:scale-[0.97]"
               >
                 <Show when={testing()} fallback={
                   <Show when={tested()} fallback={
@@ -150,14 +150,14 @@ export default function AuthModal() {
               <button
                 type="submit"
                 disabled={loading()}
-                class="w-full bg-[#1db954] hover:bg-[#1ed760] text-black font-medium text-sm py-2.5 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                class="w-full bg-[#1db954] hover:bg-[#1ed760] text-black font-medium text-sm py-2.5 rounded-lg transition-all duration-150 disabled:opacity-50 cursor-pointer active:scale-[0.97]"
               >
                 {loading() ? "Signing in..." : "Sign in"}
               </button>
               <button
                 type="button"
                 onClick={() => { setStep("url"); setError(""); setTested(false); }}
-                class="w-full text-[#888] hover:text-white text-xs transition-colors cursor-pointer"
+                class="w-full text-[#888] hover:text-white text-xs transition-all duration-150 cursor-pointer active:scale-[0.97]"
               >
                 ← Back to server URL
               </button>

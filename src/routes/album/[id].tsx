@@ -77,7 +77,7 @@ export default function AlbumPage() {
               <h1 class="text-3xl font-bold text-white mb-2">{album()!.Name}</h1>
               <A
                 href={`/artist/${album()!.AlbumArtists?.[0]?.Id || ""}`}
-                class="text-sm text-[#888] hover:text-white hover:underline transition-colors"
+                class="text-sm text-[#888] hover:text-white hover:underline transition-all duration-150"
               >
                 {album()!.AlbumArtist || album()!.Artists?.join(", ") || "Unknown Artist"}
               </A>
@@ -92,7 +92,7 @@ export default function AlbumPage() {
               {tracks() && tracks()!.length > 0 && (
                 <button
                   onClick={() => player.appendToQueue(tracks()!)}
-                  class="mt-3 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#2a2a2a] text-xs text-[#888] hover:text-white hover:bg-[#333] transition-colors cursor-pointer"
+                  class="mt-3 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#2a2a2a] text-xs text-[#888] hover:text-white hover:bg-[#333] transition-all duration-150 cursor-pointer active:scale-90"
                   title="Add album to queue"
                 >
                   <ListMusic size={14} />

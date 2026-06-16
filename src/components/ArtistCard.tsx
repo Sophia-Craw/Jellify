@@ -11,7 +11,7 @@ export default function ArtistCard(props: { artist: MusicArtist }) {
   return (
     <A
       href={`/artist/${artist.Id}`}
-      class="group block rounded-lg p-3 transition-colors"
+      class="group block rounded-lg p-3 transition-all duration-200 active:scale-[0.97] hover:bg-[#242424]"
     >
       <div class="relative aspect-square mb-3 rounded-full overflow-hidden bg-[#242424]">
         {hasImage() ? (
