@@ -1,4 +1,5 @@
 import { createSignal, onMount, onCleanup } from "solid-js";
+import { Portal } from "solid-js/web";
 import { usePlayer } from "~/stores/player";
 import { usePlaylists } from "~/stores/playlists";
 import { ListMusic, Plus, Trash2, MoreHorizontal } from "lucide-solid";
@@ -17,10 +18,13 @@ export default function TrackMenu(props: Props) {
   const { removeTrack } = usePlaylists();
   const [open, setOpen] = createSignal(false);
   const [showPlaylistDialog, setShowPlaylistDialog] = createSignal(false);
+  let btnRef: HTMLButtonElement | undefined;
   let menuRef: HTMLDivElement | undefined;
+  let menuTop = 0;
+  let menuRight = 0;
 
   function handleClickOutside(e: MouseEvent) {
-    if (open() && menuRef && !menuRef.contains(e.target as Node)) {
+    if (open() && menuRef && !menuRef.contains(e.target as Node) && btnRef && !btnRef.contains(e.target as Node)) {
       setOpen(false);
     }
   }
@@ -40,10 +44,21 @@ export default function TrackMenu(props: Props) {
     setOpen(false);
   }
 
+  function toggleMenu(e: MouseEvent) {
+    e.stopPropagation();
+    if (!open()) {
+      const rect = btnRef!.getBoundingClientRect();
+      menuTop = rect.bottom + 4;
+      menuRight = window.innerWidth - rect.right;
+    }
+    setOpen(!open());
+  }
+
   return (
-    <div ref={menuRef} class="relative">
+    <>
       <button
-        onClick={(e) => { e.stopPropagation(); setOpen(!open()); }}
+        ref={btnRef}
+        onClick={toggleMenu}
         class="text-[#888] hover:text-white transition-all duration-150 px-1 cursor-pointer active:scale-90"
         title="More"
       >
@@ -51,31 +66,38 @@ export default function TrackMenu(props: Props) {
       </button>
 
       {open() && (
-        <div class="absolute right-0 top-full mt-1 w-44 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-xl z-[60] py-1" onClick={(e) => e.stopPropagation()}>
-          <button
-            onClick={handleAddToQueue}
-            class="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#e0e0e0] hover:bg-[#242424] transition-all duration-150 text-left cursor-pointer active:scale-[0.97]"
+        <Portal>
+          <div
+            ref={menuRef}
+            class="fixed z-[60] w-44 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-xl py-1"
+            style={{ top: `${menuTop}px`, right: `${menuRight}px` }}
+            onClick={(e) => e.stopPropagation()}
           >
-            <ListMusic size={16} />
-            Add to queue
-          </button>
-          <button
-            onClick={() => { setOpen(false); setShowPlaylistDialog(true); }}
-            class="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#e0e0e0] hover:bg-[#242424] transition-all duration-150 text-left cursor-pointer active:scale-[0.97]"
-          >
-            <Plus size={16} />
-            Add to playlist
-          </button>
-          {props.playlistId && (
             <button
-              onClick={handleRemoveFromPlaylist}
-              class="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-[#242424] transition-all duration-150 text-left cursor-pointer active:scale-[0.97]"
+              onClick={handleAddToQueue}
+              class="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#e0e0e0] hover:bg-[#242424] transition-all duration-150 text-left cursor-pointer active:scale-[0.97]"
             >
-              <Trash2 size={16} />
-              Remove from playlist
+              <ListMusic size={16} />
+              Add to queue
             </button>
-          )}
-        </div>
+            <button
+              onClick={() => { setOpen(false); setShowPlaylistDialog(true); }}
+              class="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#e0e0e0] hover:bg-[#242424] transition-all duration-150 text-left cursor-pointer active:scale-[0.97]"
+            >
+              <Plus size={16} />
+              Add to playlist
+            </button>
+            {props.playlistId && (
+              <button
+                onClick={handleRemoveFromPlaylist}
+                class="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-[#242424] transition-all duration-150 text-left cursor-pointer active:scale-[0.97]"
+              >
+                <Trash2 size={16} />
+                Remove from playlist
+              </button>
+            )}
+          </div>
+        </Portal>
       )}
 
       {showPlaylistDialog() && (
@@ -85,6 +107,6 @@ export default function TrackMenu(props: Props) {
           onClose={() => setShowPlaylistDialog(false)}
         />
       )}
-    </div>
+    </>
   );
 }
