@@ -69,7 +69,8 @@ export function AuthProvider(props: { children: JSX.Element }) {
   });
 
   async function login(serverUrl: string, username: string, password: string) {
-    const base = serverUrl.replace(/\/+$/, "");
+    let base = serverUrl.replace(/\/+$/, "");
+    if (!/^https?:\/\//i.test(base)) base = `http://${base}`;
     const res = await fetch(`${base}/Users/AuthenticateByName`, {
       method: "POST",
       headers: {

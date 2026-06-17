@@ -13,8 +13,14 @@ export default function AuthModal() {
   const [testing, setTesting] = createSignal(false);
   const [tested, setTested] = createSignal(false);
 
+  function normalizeUrl(raw: string): string {
+    let url = raw.trim().replace(/\/+$/, "");
+    if (url && !/^https?:\/\//i.test(url)) url = `http://${url}`;
+    return url;
+  }
+
   async function testConnection() {
-    const url = serverUrl().trim().replace(/\/+$/, "");
+    const url = normalizeUrl(serverUrl());
     if (!url) return;
     setTesting(true);
     setError("");
@@ -36,7 +42,7 @@ export default function AuthModal() {
     setError("");
     setLoading(true);
     try {
-      await login(serverUrl().trim().replace(/\/+$/, ""), username().trim(), password());
+      await login(normalizeUrl(serverUrl()), username().trim(), password());
       try {
         const authData = auth();
         if (authData) {

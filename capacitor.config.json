@@ -4,6 +4,7 @@
   "webDir": ".output/public",
   "bundledWebRuntime": false,
   "server": {
+    "androidScheme": "http",
     "cleartext": true
   },
   "plugins": {
