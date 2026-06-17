@@ -1,5 +1,4 @@
 import { createSignal } from "solid-js";
-import { Minus, Square, X } from "lucide-solid";
 import { useAuth } from "~/stores/auth";
 import UserMenu from "./UserMenu";
 
@@ -47,20 +46,23 @@ export default function TitleBar() {
           <button
             onClick={() => window.electronAPI?.minimize()}
             class="w-10 h-full flex items-center justify-center text-[#888] hover:text-white hover:bg-[#1a1a1a] transition-all duration-150 cursor-pointer active:scale-90"
+            title="Minimize"
           >
-            <Minus size={14} />
+            <span class="text-sm leading-none">─</span>
           </button>
           <button
             onClick={handleMaximize}
             class="w-10 h-full flex items-center justify-center text-[#888] hover:text-white hover:bg-[#1a1a1a] transition-all duration-150 cursor-pointer active:scale-90"
+            title="Maximize"
           >
-            <Square size={11} />
+            <span class="text-sm leading-none">□</span>
           </button>
           <button
             onClick={() => window.electronAPI?.close()}
             class="w-10 h-full flex items-center justify-center text-[#888] hover:text-white hover:bg-red-600 transition-all duration-150 cursor-pointer active:scale-90"
+            title="Close"
           >
-            <X size={14} />
+            <span class="text-sm leading-none">✕</span>
           </button>
         </div>
       )}
